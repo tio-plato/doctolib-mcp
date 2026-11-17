@@ -49,7 +49,7 @@ behaviour. The tool descriptions say so too.
 - All server processes of the same user share the gate: the state lives in `$XDG_STATE_HOME/doctolib-mcp`
   (`~/.local/state/doctolib-mcp` by default) under a file lock, since every client on one machine goes out through
   the same IP address.
-- When Doctolib blocks a request (HTTP 403 or 429, or an HTML page where JSON was expected), the server writes
+- When Doctolib blocks a request (HTTP 403 or 429 whatever the body, or an HTML page with a 2xx or 503 status), the server writes
   `blocked.json` in that directory and stops: every tool refuses to call Doctolib until a person deletes the file.
   The file holds the time, the endpoint, the status and the start of the block page, with its support code. Delete
   it only once you decide to try again.
