@@ -262,13 +262,17 @@ func since(sent []time.Time, from time.Time) []time.Time {
 	return nil
 }
 
-// writeFile replaces path atomically, so a crash never leaves half a file.
+// writeFile replaces path atomically, so a crash never leaves half a file:
+// the data reaches the disk before the rename makes it the file.
 func writeFile(path string, data []byte) error {
 	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*")
 	if err != nil {
 		return fmt.Errorf("create temporary file: %w", err)
 	}
 	_, err = tmp.Write(data)
+	if err == nil {
+		err = tmp.Sync()
+	}
 	if closeErr := tmp.Close(); err == nil {
 		err = closeErr
 	}
