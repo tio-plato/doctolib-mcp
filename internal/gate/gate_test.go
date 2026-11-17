@@ -39,12 +39,7 @@ func TestHelperProcess(t *testing.T) {
 	time.Sleep(time.Until(time.Unix(0, start)))
 	g := gate.New(
 		gate.Config{
-			Dir:      dir,
-			Interval: interval,
-			Hourly:   gate.DefaultHourly,
-			Daily:    gate.DefaultDaily,
-			Now:      nil,
-			Sleep:    nil,
+			Dir: dir, Interval: interval, Hourly: gate.DefaultHourly, Daily: gate.DefaultDaily, Now: nil, Sleep: nil,
 		},
 	)
 	err = g.Acquire(context.Background())
@@ -87,17 +82,9 @@ func TestIntervalHoldsAcrossProcesses(t *testing.T) {
 		t.Errorf("the children saw Acquire return %v apart, want about %v", gap, interval)
 	}
 
-	data, err := os.ReadFile(filepath.Join(dir, "requests.json"))
-	if err != nil {
-		t.Fatalf("no shared request log: %v", err)
-	}
-	var sent []time.Time
-	err = json.Unmarshal(data, &sent)
-	if err != nil {
-		t.Fatal(err)
-	}
+	sent := readLog(t, dir)
 	if len(sent) != 2 {
-		t.Fatalf("the shared request log holds %d requests, want 2: %s", len(sent), data)
+		t.Fatalf("the shared request log holds %d requests, want 2: %v", len(sent), sent)
 	}
 	if gap := sent[1].Sub(sent[0]); gap < interval {
 		t.Errorf("the two processes were let through %v apart, want at least %v", gap, interval)
@@ -179,4 +166,40 @@ func TestBlockWrittenWhileWaitingIsHonoured(t *testing.T) {
 	if !errors.As(err, &blocked) {
 		t.Errorf("the waiting request got %v, want a block", err)
 	}
+}
+
+// After the clock steps back, the request log stays in ascending order, which the caps rely on.
+func TestLogStaysInOrderAfterTheClockStepsBack(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	now := time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
+	g := gate.New(gate.Config{
+		Dir: dir, Interval: time.Millisecond, Hourly: gate.DefaultHourly, Daily: gate.DefaultDaily,
+		Now: func() time.Time { return now }, Sleep: nil,
+	})
+	for _, step := range []time.Duration{0, -time.Hour} {
+		now = now.Add(step)
+		err := g.Acquire(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	sent := readLog(t, dir)
+	if len(sent) != 2 || sent[1].Before(sent[0]) {
+		t.Errorf("request log %v is not in order", sent)
+	}
+}
+
+func readLog(t *testing.T, dir string) []time.Time {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(dir, "requests.json"))
+	if err != nil {
+		t.Fatalf("no shared request log: %v", err)
+	}
+	var sent []time.Time
+	err = json.Unmarshal(data, &sent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sent
 }

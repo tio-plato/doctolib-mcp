@@ -162,8 +162,8 @@ func (g *Gate) Acquire(ctx context.Context) error {
 }
 
 // waitAfter waits until the interval after the last request has passed, and
-// returns the time to record. It waits at most one interval, even after the
-// clock steps back.
+// returns the time to record. It waits at most one interval and records no
+// time before last, even after the clock steps back, so the log stays in order.
 func (g *Gate) waitAfter(ctx context.Context, last, now time.Time) (time.Time, error) {
 	if wait := min(last.Add(g.interval).Sub(now), g.interval); wait > 0 {
 		err := g.sleep(ctx, wait)
@@ -175,6 +175,9 @@ func (g *Gate) waitAfter(ctx context.Context, last, now time.Time) (time.Time, e
 			return now, err
 		}
 		now = g.now()
+	}
+	if now.Before(last) {
+		return last, nil
 	}
 	return now, nil
 }
