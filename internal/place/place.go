@@ -29,6 +29,7 @@ const (
 	maxBody        = 8 << 20
 	fields         = "nom,code,centre,bbox,codesPostaux"
 	degToRad       = math.Pi / 180
+	half           = 0.5
 	// A GeoJSON position is [longitude, latitude].
 	positionLen = 2
 )
@@ -51,7 +52,7 @@ type BBox struct {
 
 // Centre is the middle of the box.
 func (b BBox) Centre() Point {
-	return Point{Lat: (b.South + b.North) / 2, Lng: (b.West + b.East) / 2} //nolint:mnd // the middle
+	return Point{Lat: (b.South + b.North) * half, Lng: (b.West + b.East) * half}
 }
 
 // Place is a resolved arrondissement or commune.
@@ -120,8 +121,8 @@ func (r *Resolver) Resolve(ctx context.Context, input string) (Place, error) {
 
 // Distance is the great-circle distance in kilometres (haversine, Earth radius 6371 km).
 func Distance(a, b Point) float64 {
-	halfLat := math.Sin((b.Lat - a.Lat) * degToRad / 2) //nolint:mnd // haversine
-	halfLng := math.Sin((b.Lng - a.Lng) * degToRad / 2) //nolint:mnd // haversine
+	halfLat := math.Sin((b.Lat - a.Lat) * degToRad * half)
+	halfLng := math.Sin((b.Lng - a.Lng) * degToRad * half)
 	h := halfLat*halfLat + math.Cos(a.Lat*degToRad)*math.Cos(b.Lat*degToRad)*halfLng*halfLng
 	return 2 * earthRadiusKm * math.Asin(math.Sqrt(h))
 }

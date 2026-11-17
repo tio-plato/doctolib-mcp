@@ -16,6 +16,8 @@ import (
 const (
 	searchPath = "/patient-health-search/api/v1/hcp/search"
 	pageSize   = 20
+	// distance_km keeps one decimal.
+	tenths = 10
 )
 
 // SearchInput is the input of search_practitioners.
@@ -260,7 +262,7 @@ func organiseLocation(o *object, p *Practitioner, ref place.Point, plc place.Pla
 	loc.take("lat", &p.Lat)
 	loc.take("lng", &p.Lng)
 	if p.Lat != nil && p.Lng != nil {
-		d := math.Round(place.Distance(ref, place.Point{Lat: *p.Lat, Lng: *p.Lng})*10) / 10 //nolint:mnd // one decimal
+		d := math.Round(place.Distance(ref, place.Point{Lat: *p.Lat, Lng: *p.Lng})*tenths) / tenths
 		p.DistanceKm = &d
 	}
 	p.InArea = p.Zipcode != nil && slices.Contains(plc.Postcodes, *p.Zipcode)

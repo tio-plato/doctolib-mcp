@@ -130,12 +130,12 @@ func (g *Gate) Acquire(ctx context.Context) error {
 	}
 	defer unlock()
 
-	marker, err := g.readMarker()
+	marker, blocked, err := g.readMarker()
 	if err != nil {
 		return err
 	}
-	if marker != nil {
-		return &BlockedError{Marker: *marker, MarkerPath: g.MarkerPath(), WriteErr: nil}
+	if blocked {
+		return &BlockedError{Marker: marker, MarkerPath: g.MarkerPath(), WriteErr: nil}
 	}
 
 	sent, err := g.readLog()
@@ -215,20 +215,21 @@ func (g *Gate) lock() (func(), error) {
 	}, nil
 }
 
-func (g *Gate) readMarker() (*Marker, error) {
+// readMarker reports whether the block marker exists, and what it holds.
+func (g *Gate) readMarker() (Marker, bool, error) {
+	var m Marker
 	data, err := os.ReadFile(g.MarkerPath())
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil //nolint:nilnil // no marker is not an error
+		return m, false, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("read block marker: %w", err)
+		return m, false, fmt.Errorf("read block marker: %w", err)
 	}
-	var m Marker
 	if json.Unmarshal(data, &m) != nil {
 		// The file still blocks: its presence is what counts.
 		m = Marker{Time: time.Time{}, Path: "", Status: 0, Text: string(data)}
 	}
-	return &m, nil
+	return m, true, nil
 }
 
 func (g *Gate) readLog() ([]time.Time, error) {
