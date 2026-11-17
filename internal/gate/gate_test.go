@@ -2,9 +2,10 @@ package gate_test
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -20,7 +21,7 @@ const (
 )
 
 // TestHelperProcess is not a test: run as a child process, it waits for the
-// common start time, passes the gate once and prints when it was let through.
+// common start time and passes the gate once.
 func TestHelperProcess(t *testing.T) {
 	t.Parallel()
 	dir := os.Getenv(helperDirEnv)
@@ -39,11 +40,12 @@ func TestHelperProcess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _ = fmt.Fprintf(os.Stdout, "passed=%d\n", time.Now().UnixNano())
 }
 
 // Two server processes share the state directory: the second one is let
-// through only once the interval since the first one has passed.
+// through only once the interval since the first one has passed. The gap is
+// read from the request log the processes share, where the gate records
+// when it let each request through.
 func TestIntervalHoldsAcrossProcesses(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -54,37 +56,34 @@ func TestIntervalHoldsAcrossProcesses(t *testing.T) {
 		cmds[i] = exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestHelperProcess$", "-test.v")
 		cmds[i].Env = append(os.Environ(), helperDirEnv+"="+dir, helperStartEnv+"="+strconv.FormatInt(start, 10))
 		cmds[i].Stdout = &outputs[i]
-		if err := cmds[i].Start(); err != nil {
+		cmds[i].Stderr = &outputs[i]
+		err := cmds[i].Start()
+		if err != nil {
 			t.Fatal(err)
 		}
 	}
-	passed := make([]time.Time, 2)
 	for i, cmd := range cmds {
-		if err := cmd.Wait(); err != nil {
+		err := cmd.Wait()
+		if err != nil {
 			t.Fatalf("child %d: %v\n%s", i, err, outputs[i].String())
 		}
-		passed[i] = passedAt(t, outputs[i].String())
 	}
 
-	gap := passed[1].Sub(passed[0]).Abs()
-	if gap < interval {
-		t.Errorf("the two processes passed %v apart, want at least %v", gap, interval)
+	data, err := os.ReadFile(filepath.Join(dir, "requests.json"))
+	if err != nil {
+		t.Fatalf("no shared request log: %v", err)
 	}
-}
-
-func passedAt(t *testing.T, output string) time.Time {
-	t.Helper()
-	for line := range strings.Lines(output) {
-		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "passed="); ok {
-			ns, err := strconv.ParseInt(v, 10, 64)
-			if err != nil {
-				t.Fatal(err)
-			}
-			return time.Unix(0, ns)
-		}
+	var sent []time.Time
+	err = json.Unmarshal(data, &sent)
+	if err != nil {
+		t.Fatal(err)
 	}
-	t.Fatalf("no passed= line in %q", output)
-	return time.Time{}
+	if len(sent) != 2 {
+		t.Fatalf("the shared request log holds %d requests, want 2: %s", len(sent), data)
+	}
+	if gap := sent[1].Sub(sent[0]); gap < interval {
+		t.Errorf("the two processes were let through %v apart, want at least %v", gap, interval)
+	}
 }
 
 // After the clock steps back an hour, the next request waits one interval, not an hour.
