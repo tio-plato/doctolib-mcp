@@ -155,8 +155,8 @@ func (c *Client) do(ctx context.Context, method, path, rawQuery string, body []b
 	contentType := resp.Header.Get("Content-Type")
 	switch classify(resp.StatusCode, contentType) {
 	case blocked:
-		m := gate.Marker{Time: time.Now(), Path: path, Status: resp.StatusCode, Text: visibleText(data, contentType)}
-		return nil, &gate.BlockedError{Marker: m, MarkerPath: c.gate.MarkerPath(), WriteErr: c.gate.Block(m)}
+		m, blockErr := c.gate.Block(path, resp.StatusCode, visibleText(data, contentType))
+		return nil, &gate.BlockedError{Marker: m, MarkerPath: c.gate.MarkerPath(), WriteErr: blockErr}
 	case success:
 		return data, nil
 	case failure:

@@ -162,18 +162,21 @@ func (g *Gate) Acquire(ctx context.Context) error {
 	return g.writeLog(append(sent, now))
 }
 
-// Block writes the block marker. From then on every Acquire refuses until a person deletes it.
-func (g *Gate) Block(m Marker) error {
+// Block writes the block marker for the response to path, stamped with the
+// gate's clock, and returns it. From then on every Acquire refuses until a
+// person deletes it.
+func (g *Gate) Block(path string, status int, text string) (Marker, error) {
+	m := Marker{Time: g.now(), Path: path, Status: status, Text: text}
 	unlock, err := g.lock()
 	if err != nil {
-		return err
+		return m, err
 	}
 	defer unlock()
 	data, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
-		return fmt.Errorf("encode block marker: %w", err)
+		return m, fmt.Errorf("encode block marker: %w", err)
 	}
-	return writeFile(g.MarkerPath(), data)
+	return m, writeFile(g.MarkerPath(), data)
 }
 
 func (g *Gate) checkCaps(sent []time.Time, now time.Time) error {

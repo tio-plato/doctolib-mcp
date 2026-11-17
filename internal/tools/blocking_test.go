@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tio-plato/doctolib-mcp/internal/gate"
 	"github.com/tio-plato/doctolib-mcp/internal/tools"
@@ -17,6 +18,11 @@ const blockPage = `<!DOCTYPE html><html><head><title>Doctolib</title><style>body
 <script>var tracking = 1;</script></head><body><h1>Votre requête est bloquée !</h1>
 <p>Le blocage de votre requête fait suite à un comportement ne respectant pas nos CGU.</p>
 <p>Code pour le support: 0000fake0000</p></body></html>`
+
+// gateNow is a fixed clock for the gate.
+func gateNow() time.Time {
+	return time.Date(2026, 11, 17, 10, 0, 0, 0, time.UTC)
+}
 
 // callAll calls the three tools once each and returns their errors.
 func callAll(t *testing.T, e *env) []error {
@@ -34,7 +40,7 @@ func callAll(t *testing.T, e *env) []error {
 
 func TestBlockStopsEveryToolUntilTheMarkerIsDeleted(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t)
+	e := newEnv(t, func(c *gate.Config) { c.Now = gateNow })
 	e.fake.handle(availabilityPath, func(w http.ResponseWriter, _ *http.Request) {
 		writeHTML(w, http.StatusForbidden, blockPage)
 	})
@@ -57,7 +63,7 @@ func TestBlockStopsEveryToolUntilTheMarkerIsDeleted(t *testing.T) {
 	}
 	var marker gate.Marker
 	err = json.Unmarshal(data, &marker)
-	if err != nil || marker.Status != http.StatusForbidden ||
+	if err != nil || marker.Status != http.StatusForbidden || !marker.Time.Equal(gateNow()) ||
 		marker.Path != availabilityPath || !strings.Contains(marker.Text, "0000fake0000") {
 		t.Errorf("marker %s (%v)", data, err)
 	}
