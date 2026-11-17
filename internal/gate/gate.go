@@ -304,6 +304,12 @@ func writeFile(path string, data []byte) error {
 	if err != nil {
 		return fmt.Errorf("replace %s: %w", path, err)
 	}
+	// The rename reaches the disk with the directory. Best effort: some
+	// systems cannot sync a directory, and the file itself is already synced.
+	if dir, openErr := os.Open(filepath.Dir(path)); openErr == nil {
+		_ = dir.Sync()
+		_ = dir.Close()
+	}
 	return nil
 }
 
