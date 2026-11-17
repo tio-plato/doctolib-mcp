@@ -87,15 +87,17 @@ func (e *partialError) Error() string { return e.err.Error() }
 
 func (e *partialError) Unwrap() error { return e.err }
 
-var errQueryCount = fmt.Errorf("queries: want 1 to %d", MaxQueries)
-
 // Availability runs availability: one Doctolib request per query, in turn, at the gate's pace.
 //
 // A failed query is reported in its own result. A block or a reached cap stops
 // the batch: the error then carries the results fetched so far.
 func (t *Tools) Availability(ctx context.Context, in AvailabilityInput) (*AvailabilityOutput, error) {
 	if len(in.Queries) == 0 || len(in.Queries) > MaxQueries {
-		return nil, errQueryCount
+		return nil, fmt.Errorf(
+			"queries: got %d, want 1 to %d",
+			len(in.Queries),
+			MaxQueries,
+		)
 	}
 	start, err := t.startDate(in.StartDate)
 	if err != nil {

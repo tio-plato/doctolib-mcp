@@ -193,12 +193,12 @@ type commune struct {
 }
 
 func (r *Resolver) byPostcode(ctx context.Context, postcode string) (Place, error) {
-	found, err := r.communes(ctx, url.Values{"codePostal": {postcode}, "type": {"arrondissement-municipal"}})
+	found, err := r.communes(ctx, postcode, url.Values{"codePostal": {postcode}, "type": {"arrondissement-municipal"}})
 	if err != nil {
 		return Place{}, err
 	}
 	if len(found) == 0 {
-		found, err = r.communes(ctx, url.Values{"codePostal": {postcode}})
+		found, err = r.communes(ctx, postcode, url.Values{"codePostal": {postcode}})
 		if err != nil {
 			return Place{}, err
 		}
@@ -211,7 +211,7 @@ func (r *Resolver) byPostcode(ctx context.Context, postcode string) (Place, erro
 }
 
 func (r *Resolver) byName(ctx context.Context, name string) (Place, error) {
-	found, err := r.communes(ctx, url.Values{
+	found, err := r.communes(ctx, name, url.Values{
 		"nom": {name}, "boost": {"population"}, "limit": {strconv.Itoa(nameLimit)},
 	})
 	if err != nil {
@@ -243,29 +243,29 @@ func (r *Resolver) byName(ctx context.Context, name string) (Place, error) {
 	}
 }
 
-func (r *Resolver) communes(ctx context.Context, query url.Values) ([]commune, error) {
+func (r *Resolver) communes(ctx context.Context, input string, query url.Values) ([]commune, error) {
 	query.Set("fields", fields)
 	query.Set("format", "json")
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, r.baseURL+"/communes?"+query.Encode(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("build geo.api.gouv.fr request: %w", err)
+		return nil, fmt.Errorf("build geo.api.gouv.fr request for %q: %w", input, err)
 	}
 	resp, err := r.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("query geo.api.gouv.fr: %w", err)
+		return nil, fmt.Errorf("look up %q on geo.api.gouv.fr: %w", input, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("query geo.api.gouv.fr: HTTP %d", resp.StatusCode)
+		return nil, fmt.Errorf("look up %q on geo.api.gouv.fr: HTTP %d", input, resp.StatusCode)
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))
 	if err != nil {
-		return nil, fmt.Errorf("read geo.api.gouv.fr response: %w", err)
+		return nil, fmt.Errorf("read the geo.api.gouv.fr answer for %q: %w", input, err)
 	}
 	var found []commune
 	err = json.Unmarshal(data, &found)
 	if err != nil {
-		return nil, fmt.Errorf("decode geo.api.gouv.fr response: %w", err)
+		return nil, fmt.Errorf("decode the geo.api.gouv.fr answer for %q: %w", input, err)
 	}
 	return found, nil
 }
