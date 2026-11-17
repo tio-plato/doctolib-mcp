@@ -1,0 +1,309 @@
+package tools
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"math"
+	"slices"
+	"strconv"
+	"strings"
+
+	"github.com/tio-plato/doctolib-mcp/internal/place"
+)
+
+const (
+	searchPath = "/patient-health-search/api/v1/hcp/search"
+	pageSize   = 20
+)
+
+// SearchInput is the input of search_practitioners.
+type SearchInput struct {
+	Query     string   `json:"query"               jsonschema:"speciality or keyword, e.g. dentiste, dermatologue, kinesitherapeute, or a practitioner's name"`
+	Place     string   `json:"place"               jsonschema:"5-digit French postcode, or commune name such as Lyon or Saint-Étienne. Postcodes of Paris, Lyon and Marseille resolve to their arrondissement, the names to the whole city"`
+	Languages []string `json:"languages,omitempty" jsonschema:"Doctolib language codes (not ISO, see the tool description); Doctolib keeps practitioners who speak one of them"`
+	Page      int      `json:"page,omitempty"      jsonschema:"page number, from 0; 20 results a page"`
+}
+
+// SearchOutput is the result of search_practitioners.
+type SearchOutput struct {
+	Place place.Place `json:"place"`
+	// SearchedLocation is Doctolib's search point, or the centre of the box when Doctolib gives none.
+	SearchedLocation place.Point                `json:"searched_location"`
+	Total            *int                       `json:"total"`
+	Page             int                        `json:"page"`
+	PageSize         int                        `json:"page_size"`
+	HasMore          bool                       `json:"has_more"`
+	Results          []Practitioner             `json:"results"`
+	Other            map[string]json.RawMessage `json:"other"`
+}
+
+// Practitioner is one search result: a practitioner or an organisation at one practice.
+type Practitioner struct {
+	Name              string                     `json:"name"`
+	Kind              string                     `json:"kind"`
+	Title             *string                    `json:"title"`
+	FirstName         *string                    `json:"first_name"`
+	LastName          *string                    `json:"last_name"`
+	Speciality        *string                    `json:"speciality"`
+	SpecialitySlug    *string                    `json:"speciality_slug"`
+	Address           *string                    `json:"address"`
+	Zipcode           *string                    `json:"zipcode"`
+	City              *string                    `json:"city"`
+	Lat               *float64                   `json:"lat"`
+	Lng               *float64                   `json:"lng"`
+	DistanceKm        *float64                   `json:"distance_km"`
+	InArea            bool                       `json:"in_area"`
+	Languages         []Label                    `json:"languages"`
+	Sector            *Label                     `json:"sector"`
+	Telehealth        *bool                      `json:"telehealth"`
+	BookableOnline    bool                       `json:"bookable_online"`
+	AllowNewPatients  *bool                      `json:"allow_new_patients"`
+	PaymentMeans      json.RawMessage            `json:"payment_means"`
+	MinimumFee        json.RawMessage            `json:"minimum_fee"`
+	MatchedMotive     *MatchedMotive             `json:"matched_motive"`
+	AvailabilityQuery *AvailabilityQuery         `json:"availability_query"`
+	ProfileURL        *string                    `json:"profile_url"`
+	Other             map[string]json.RawMessage `json:"other"`
+}
+
+// MatchedMotive is the visit motive Doctolib matched to the query.
+type MatchedMotive struct {
+	ID   *int64  `json:"id"`
+	Name *string `json:"name"`
+}
+
+// Label is a Doctolib code with its label; Label is null for a code the table does not know.
+type Label struct {
+	Code  string  `json:"code"`
+	Label *string `json:"label"`
+}
+
+// AvailabilityQuery is one combination the availability tool takes as it is.
+type AvailabilityQuery struct {
+	VisitMotiveID int64   `json:"visit_motive_id"`
+	AgendaIDs     []int64 `json:"agenda_ids"`
+	PracticeID    int64   `json:"practice_id"`
+}
+
+// Search runs search_practitioners: one geocoding lookup, then one Doctolib request.
+func (t *Tools) Search(ctx context.Context, in SearchInput) (*SearchOutput, error) {
+	plc, err := t.places.Resolve(ctx, in.Place)
+	if err != nil {
+		return nil, fmt.Errorf("resolve place: %w", err)
+	}
+	raw, err := t.doctolib.Post(ctx, searchPath, "page="+strconv.Itoa(in.Page), searchBody(in, plc))
+	if err != nil {
+		return nil, fmt.Errorf("search: %w", err)
+	}
+	return organiseSearch(raw, plc, in.Page, t.doctolib.BaseURL())
+}
+
+type latLng struct {
+	Lat float64 `json:"lat"`
+	Lng float64 `json:"lng"`
+}
+
+type searchRequest struct {
+	Keyword  string         `json:"keyword"`
+	Location searchLocation `json:"location"`
+	Filters  map[string]any `json:"filters"`
+}
+
+type searchLocation struct {
+	Place searchPlace `json:"place"`
+}
+
+type searchPlace struct {
+	Name     string   `json:"name"`
+	Slug     string   `json:"slug"`
+	Country  string   `json:"country"`
+	Type     string   `json:"type"`
+	Viewport viewport `json:"viewport"`
+	GPSPoint latLng   `json:"gpsPoint"`
+}
+
+type viewport struct {
+	Northeast latLng `json:"northeast"`
+	Southwest latLng `json:"southwest"`
+}
+
+// searchBody is the body the Doctolib web front end sends; Doctolib refuses
+// it (422) without the full place and the filters object.
+func searchBody(in SearchInput, plc place.Place) searchRequest {
+	filters := map[string]any{}
+	if len(in.Languages) > 0 {
+		filters["languages"] = in.Languages
+	}
+	return searchRequest{
+		Keyword: in.Query,
+		Location: searchLocation{Place: searchPlace{
+			Name:    plc.Name,
+			Slug:    place.Slug(plc.Name),
+			Country: "fr",
+			Type:    "locality",
+			Viewport: viewport{
+				Northeast: latLng{Lat: plc.BBox.North, Lng: plc.BBox.East},
+				Southwest: latLng{Lat: plc.BBox.South, Lng: plc.BBox.West},
+			},
+			GPSPoint: latLng{Lat: plc.Centre.Lat, Lng: plc.Centre.Lng},
+		}},
+		Filters: filters,
+	}
+}
+
+var errNotObject = errors.New("not a JSON object")
+
+func organiseSearch(raw []byte, plc place.Place, page int, base string) (*SearchOutput, error) {
+	top := parseObject(raw)
+	if top == nil {
+		return nil, fmt.Errorf("decode search response: %w", errNotObject)
+	}
+	out := &SearchOutput{
+		Place: plc, SearchedLocation: plc.BBox.Centre(), Total: nil, Page: page, PageSize: pageSize,
+		HasMore: false, Results: []Practitioner{}, Other: nil,
+	}
+	if loc := top.sub("searchedLocation"); loc != nil {
+		var lat, lng *float64
+		if loc.peek("lat", &lat) && loc.peek("lng", &lng) && lat != nil && lng != nil {
+			loc.drop("lat")
+			loc.drop("lng")
+			out.SearchedLocation = place.Point{Lat: *lat, Lng: *lng}
+		}
+	}
+	top.take("total", &out.Total)
+	out.HasMore = out.Total != nil && (page+1)*pageSize < *out.Total
+
+	var items []json.RawMessage
+	if top.take("healthcareProviders", &items) {
+		for _, item := range items {
+			out.Results = append(out.Results, organisePractitioner(item, out.SearchedLocation, plc, base))
+		}
+	}
+	out.Other = top.rest()
+	return out, nil
+}
+
+func organisePractitioner(raw json.RawMessage, ref place.Point, plc place.Place, base string) Practitioner {
+	var p Practitioner
+	o := parseObject(raw)
+	if o == nil {
+		p.Other = notObject(raw)
+		return p
+	}
+	organiseIdentity(o, &p)
+	organiseLocation(o, &p, ref, plc)
+	organiseBooking(o, &p)
+
+	var codes []string
+	if o.take("languages", &codes) && codes != nil {
+		p.Languages = make([]Label, 0, len(codes))
+		for _, c := range codes {
+			p.Languages = append(p.Languages, label(languageLabels(), c))
+		}
+	}
+	var sector *string
+	if o.take("regulationSector", &sector) && sector != nil {
+		l := label(sectorLabels(), *sector)
+		p.Sector = &l
+	}
+	o.take("paymentMeans", &p.PaymentMeans)
+	o.take("minimumFee", &p.MinimumFee)
+	var link *string
+	if o.take("link", &link) && link != nil {
+		u := base + *link
+		p.ProfileURL = &u
+	}
+	p.Other = o.rest()
+	return p
+}
+
+// organiseIdentity fills the name, kind and speciality.
+func organiseIdentity(o *object, p *Practitioner) {
+	var typ *string
+	o.peek("type", &typ) // kind is derived; type itself stays in other
+	switch {
+	case typ == nil:
+		p.Kind = ""
+	case *typ == "INDIVIDUAL_PRACTITIONER":
+		p.Kind = "practitioner"
+	case *typ == "ORGANIZATION":
+		p.Kind = "organization"
+	default:
+		p.Kind = *typ
+	}
+	o.take("title", &p.Title)
+	o.take("firstName", &p.FirstName)
+	var name *string
+	if o.take("name", &name) && p.Kind == "organization" {
+		p.Name = deref(name)
+	} else {
+		p.LastName = name
+		p.Name = strings.Join(strings.Fields(deref(p.Title)+" "+deref(p.FirstName)+" "+deref(name)), " ")
+	}
+	if sp := o.sub("speciality"); sp != nil {
+		sp.take("name", &p.Speciality)
+		sp.take("slug", &p.SpecialitySlug)
+	}
+}
+
+// organiseLocation fills the address, the position, the distance and whether the result is in the area.
+func organiseLocation(o *object, p *Practitioner, ref place.Point, plc place.Place) {
+	loc := o.sub("location")
+	if loc == nil {
+		return
+	}
+	loc.take("address", &p.Address)
+	loc.take("zipcode", &p.Zipcode)
+	loc.take("city", &p.City)
+	loc.take("lat", &p.Lat)
+	loc.take("lng", &p.Lng)
+	if p.Lat != nil && p.Lng != nil {
+		d := math.Round(place.Distance(ref, place.Point{Lat: *p.Lat, Lng: *p.Lng})*10) / 10 //nolint:mnd // one decimal
+		p.DistanceKm = &d
+	}
+	p.InArea = p.Zipcode != nil && slices.Contains(plc.Postcodes, *p.Zipcode)
+}
+
+// organiseBooking fills the online booking fields and the ready-made availability query.
+func organiseBooking(o *object, p *Practitioner) {
+	online := o.sub("onlineBooking")
+	matched := o.sub("matchedVisitMotive")
+	refs := o.sub("references")
+	p.BookableOnline = online != nil
+	if online != nil {
+		online.take("telehealth", &p.Telehealth)
+	}
+	var motiveID *int64
+	if matched != nil {
+		p.MatchedMotive = &MatchedMotive{ID: nil, Name: nil}
+		matched.take("visitMotiveId", &p.MatchedMotive.ID)
+		matched.take("name", &p.MatchedMotive.Name)
+		matched.take("allowNewPatients", &p.AllowNewPatients)
+		motiveID = p.MatchedMotive.ID
+	}
+	var practiceID *int64
+	if refs == nil || !refs.peek("practiceId", &practiceID) || practiceID == nil || motiveID == nil || online == nil {
+		return
+	}
+	// The agendas come from onlineBooking, else from the matched motive (not nil: motiveID came from it).
+	var agendas []int64
+	from := online
+	if !online.peek("agendaIds", &agendas) || len(agendas) == 0 {
+		from = matched
+		if !matched.peek("agendaIds", &agendas) || len(agendas) == 0 {
+			return
+		}
+	}
+	from.drop("agendaIds")
+	refs.drop("practiceId")
+	p.AvailabilityQuery = &AvailabilityQuery{VisitMotiveID: *motiveID, AgendaIDs: agendas, PracticeID: *practiceID}
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}

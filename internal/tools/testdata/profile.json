@@ -1,0 +1,55 @@
+{
+  "data": {
+    "testOnlyUnknownField": "kept",
+    "profile": {
+      "id": 4001,
+      "name_with_title_and_determiner": "Dr Ada Example",
+      "name_with_title": "Dr Ada EXAMPLE",
+      "subtitle": "Dentiste",
+      "speciality": {"id": 7, "name": "Dentiste", "slug": "dentiste", "kind": "medical"},
+      "organization": false,
+      "telehealth_enabled": true
+    },
+    "specialities": [{"id": 7, "kind": "medical", "slug": "dentiste", "name": "Dentiste"}],
+    "visit_motive_categories": [{"id": 50, "name": "Suivi"}],
+    "visit_motives": [
+      {
+        "id": 3001,
+        "visit_motive_category_id": null,
+        "organization_id": 9001,
+        "position": 1,
+        "telehealth": false,
+        "name": "Première consultation",
+        "new_patient_restrictions": [{"insurance_sector": "all", "agenda_ids": [1002]}],
+        "age_referral_restrictions": [],
+        "configurations": null,
+        "testOnlyUnknownField": "kept"
+      },
+      {
+        "id": 3002,
+        "visit_motive_category_id": 50,
+        "organization_id": 9001,
+        "position": 2,
+        "telehealth": true,
+        "name": "Consultation de suivi",
+        "new_patient_restrictions": [],
+        "age_referral_restrictions": [],
+        "configurations": null
+      }
+    ],
+    "filtered_visit_motives": [],
+    "agendas": [
+      {"id": 1001, "booking_temporary_disabled": false, "practice_id": 2001, "practitioner_id": 5001, "visit_motive_ids_by_practice_id": {"2001": [3001, 3002]}, "visit_motive_ids": [3001, 3002], "landline_number": "01 00 00 00 00"},
+      {"id": 1002, "booking_temporary_disabled": false, "practice_id": 2001, "practitioner_id": 5002, "visit_motive_ids_by_practice_id": {"2001": [3001]}, "visit_motive_ids": [3001]},
+      {"id": 1003, "booking_temporary_disabled": true, "practice_id": 2002, "practitioner_id": 5001, "visit_motive_ids_by_practice_id": {"2002": [3001]}, "visit_motive_ids": [3001]}
+    ],
+    "places": [
+      {"id": "practice-2001", "name": "Cabinet dentaire Exemple", "city": "Paris", "zipcode": "75001", "latitude": 48.861, "longitude": 2.336, "address": "1 Rue de l'Exemple", "practice_ids": [2001], "slug": "paris", "landline_number": "01 00 00 00 00"},
+      {"id": "practice-2002", "name": "Clinique Exemple", "city": "Paris", "zipcode": "75002", "latitude": 48.866, "longitude": 2.343, "address": "2 Rue de l'Exemple", "practice_ids": [2002], "slug": "paris"}
+    ],
+    "practitioners": [
+      {"id": 5001, "profile_id": 4001, "name": "EXAMPLE ", "name_with_title_and_determiner": "Dr Ada Example", "name_with_title": "Dr Ada EXAMPLE", "speciality": "Dentiste"},
+      {"id": 5002, "profile_id": 4005, "name": "EXAMPLE", "name_with_title_and_determiner": "Dr Bob Example", "name_with_title": "Dr Bob EXAMPLE", "speciality": "Dentiste"}
+    ]
+  }
+}
