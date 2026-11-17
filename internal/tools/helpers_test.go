@@ -120,7 +120,7 @@ func newEnv(t *testing.T, configure ...func(*gate.Config)) *env {
 	})
 
 	cfg := gate.Config{
-		Dir: t.TempDir(), Interval: 0, Hourly: gate.DefaultHourly, Daily: gate.DefaultDaily, Now: nil,
+		Dir: t.TempDir(), Interval: 0, Hourly: gate.DefaultHourly, Daily: gate.DefaultDaily, Now: nil, Sleep: nil,
 	}
 	for _, c := range configure {
 		c(&cfg)

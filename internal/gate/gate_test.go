@@ -38,7 +38,14 @@ func TestHelperProcess(t *testing.T) {
 	}
 	time.Sleep(time.Until(time.Unix(0, start)))
 	g := gate.New(
-		gate.Config{Dir: dir, Interval: interval, Hourly: gate.DefaultHourly, Daily: gate.DefaultDaily, Now: nil},
+		gate.Config{
+			Dir:      dir,
+			Interval: interval,
+			Hourly:   gate.DefaultHourly,
+			Daily:    gate.DefaultDaily,
+			Now:      nil,
+			Sleep:    nil,
+		},
 	)
 	err = g.Acquire(context.Background())
 	if err != nil {
@@ -118,7 +125,7 @@ func TestClockSteppingBackDoesNotStall(t *testing.T) {
 	now := time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
 	g := gate.New(gate.Config{
 		Dir: t.TempDir(), Interval: 100 * time.Millisecond, Hourly: gate.DefaultHourly, Daily: gate.DefaultDaily,
-		Now: func() time.Time { return now },
+		Now: func() time.Time { return now }, Sleep: nil,
 	})
 	err := g.Acquire(t.Context())
 	if err != nil {
@@ -136,8 +143,14 @@ func TestClockSteppingBackDoesNotStall(t *testing.T) {
 // A process waiting for the interval does not send once another one has written the block marker.
 func TestBlockWrittenWhileWaitingIsHonoured(t *testing.T) {
 	t.Parallel()
+	asleep, wake := make(chan struct{}), make(chan struct{})
 	g := gate.New(gate.Config{
 		Dir: t.TempDir(), Interval: interval, Hourly: gate.DefaultHourly, Daily: gate.DefaultDaily, Now: nil,
+		Sleep: func(context.Context, time.Duration) error {
+			close(asleep)
+			<-wake
+			return nil
+		},
 	})
 	err := g.Acquire(t.Context())
 	if err != nil {
@@ -145,11 +158,22 @@ func TestBlockWrittenWhileWaitingIsHonoured(t *testing.T) {
 	}
 	waiting := make(chan error, 1)
 	go func() { waiting <- g.Acquire(t.Context()) }()
-	time.Sleep(interval / 5)
-	_, err = g.Block("/availabilities.json", 403, "blocked")
-	if err != nil {
-		t.Fatal(err)
+	<-asleep
+	written := make(chan error, 1)
+	go func() {
+		_, blockErr := g.Block("/availabilities.json", 403, "blocked")
+		written <- blockErr
+	}()
+	select {
+	case err = <-written:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		close(wake)
+		t.Fatal("Block waited for the request that is waiting out the interval")
 	}
+	close(wake)
 	var blocked *gate.BlockedError
 	err = <-waiting
 	if !errors.As(err, &blocked) {

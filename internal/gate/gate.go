@@ -43,6 +43,8 @@ type Config struct {
 	Daily  int
 	// Now is the clock; nil means [time.Now].
 	Now func() time.Time
+	// Sleep waits out the interval; nil means a timer.
+	Sleep func(ctx context.Context, d time.Duration) error
 }
 
 // Gate lets a request through once the block marker, the caps and the spacing allow it.
@@ -52,15 +54,19 @@ type Gate struct {
 	hourly   int
 	daily    int
 	now      func() time.Time
+	sleep    func(ctx context.Context, d time.Duration) error
 }
 
 // New returns a gate over the state directory c.Dir.
 func New(c Config) *Gate {
-	now := c.Now
-	if now == nil {
-		now = time.Now
+	g := &Gate{dir: c.Dir, interval: c.Interval, hourly: c.Hourly, daily: c.Daily, now: c.Now, sleep: c.Sleep}
+	if g.now == nil {
+		g.now = time.Now
 	}
-	return &Gate{dir: c.Dir, interval: c.Interval, hourly: c.Hourly, daily: c.Daily, now: now}
+	if g.sleep == nil {
+		g.sleep = sleep
+	}
+	return g
 }
 
 // DefaultDir is $XDG_STATE_HOME/doctolib-mcp, or ~/.local/state/doctolib-mcp when it is unset.
@@ -123,71 +129,68 @@ func (g *Gate) MarkerPath() string {
 //
 // It refuses while the block marker exists or a cap is reached, and otherwise
 // waits until the interval since the last request has passed. It waits
-// without the lock and checks again after waking, so a block written
-// meanwhile by another process stops it.
+// holding the lock, so the process already waiting goes first, and checks the
+// marker again on waking, so a block written meanwhile stops it.
 func (g *Gate) Acquire(ctx context.Context) error {
-	var waitedFor time.Time
-	for {
-		wait, last, err := g.pass(waitedFor)
-		if err != nil || wait <= 0 {
-			return err
-		}
-		err = sleep(ctx, wait)
-		if err != nil {
-			return err
-		}
-		waitedFor = last
-	}
-}
-
-// pass checks the marker and the caps and, once the interval after the last
-// request has passed, records the request. Otherwise it returns how long to
-// wait and the request it waits after; waitedFor is the one already waited
-// after, so a clock that stepped back never makes it wait twice.
-func (g *Gate) pass(waitedFor time.Time) (time.Duration, time.Time, error) {
 	unlock, err := g.lock()
 	if err != nil {
-		return 0, time.Time{}, err
+		return err
 	}
 	defer unlock()
 
-	marker, blocked, err := g.readMarker()
+	err = g.checkMarker()
 	if err != nil {
-		return 0, time.Time{}, err
+		return err
 	}
-	if blocked {
-		return 0, time.Time{}, &BlockedError{Marker: marker, MarkerPath: g.MarkerPath(), WriteErr: nil}
-	}
-
 	sent, err := g.readLog()
 	if err != nil {
-		return 0, time.Time{}, err
+		return err
 	}
 	now := g.now()
 	sent = since(sent, now.Add(-day))
 	err = g.checkCaps(sent, now)
 	if err != nil {
-		return 0, time.Time{}, err
+		return err
 	}
-	if n := len(sent); n > 0 && !sent[n-1].Equal(waitedFor) {
-		// Never more than one interval, even after the clock steps back.
-		if wait := min(sent[n-1].Add(g.interval).Sub(now), g.interval); wait > 0 {
-			return wait, sent[n-1], nil
+	if n := len(sent); n > 0 {
+		now, err = g.waitAfter(ctx, sent[n-1], now)
+		if err != nil {
+			return err
 		}
 	}
-	return 0, time.Time{}, g.writeLog(append(sent, now))
+	return g.writeLog(append(sent, now))
+}
+
+// waitAfter waits until the interval after the last request has passed, and
+// returns the time to record. It waits at most one interval, even after the
+// clock steps back.
+func (g *Gate) waitAfter(ctx context.Context, last, now time.Time) (time.Time, error) {
+	if wait := min(last.Add(g.interval).Sub(now), g.interval); wait > 0 {
+		err := g.sleep(ctx, wait)
+		if err != nil {
+			return now, err
+		}
+		err = g.checkMarker()
+		if err != nil {
+			return now, err
+		}
+		now = g.now()
+	}
+	return now, nil
 }
 
 // Block writes the block marker for the response to path, stamped with the
 // gate's clock, and returns it. From then on every Acquire refuses until a
 // person deletes it.
+//
+// It takes no lock: a process waiting out the interval holds it, and must find
+// the marker when it wakes. Replacing the file by a rename keeps the write whole.
 func (g *Gate) Block(path string, status int, text string) (Marker, error) {
 	m := Marker{Time: g.now(), Path: path, Status: status, Text: text}
-	unlock, err := g.lock()
+	err := os.MkdirAll(g.dir, 0o700)
 	if err != nil {
-		return m, err
+		return m, fmt.Errorf("create state directory: %w", err)
 	}
-	defer unlock()
 	data, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return m, fmt.Errorf("encode block marker: %w", err)
@@ -229,6 +232,18 @@ func (g *Gate) lock() (func(), error) {
 		_ = syscall.Flock(fd, syscall.LOCK_UN)
 		_ = f.Close()
 	}, nil
+}
+
+// checkMarker returns a [BlockedError] while the block marker exists.
+func (g *Gate) checkMarker() error {
+	marker, blocked, err := g.readMarker()
+	if err != nil {
+		return err
+	}
+	if blocked {
+		return &BlockedError{Marker: marker, MarkerPath: g.MarkerPath(), WriteErr: nil}
+	}
+	return nil
 }
 
 // readMarker reports whether the block marker exists, and what it holds.

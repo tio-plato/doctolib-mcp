@@ -42,7 +42,12 @@ func run() error {
 		BaseURL:     doctolib.DefaultBaseURL,
 		ChromeMajor: chrome,
 		Gate: gate.New(gate.Config{
-			Dir: dir, Interval: gate.DefaultInterval, Hourly: gate.DefaultHourly, Daily: gate.DefaultDaily, Now: nil,
+			Dir:      dir,
+			Interval: gate.DefaultInterval,
+			Hourly:   gate.DefaultHourly,
+			Daily:    gate.DefaultDaily,
+			Now:      nil,
+			Sleep:    nil,
 		}),
 		Timeout: 0,
 	})
