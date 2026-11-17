@@ -2,7 +2,6 @@ package tools
 
 import (
 	"encoding/json"
-	"maps"
 )
 
 // object is a Doctolib JSON object whose fields are taken one by one into the
@@ -50,11 +49,12 @@ func (o *object) drop(key string) {
 
 // sub returns the field as an object to take fields from; what is left of it
 // comes back under the same name in rest. It returns nil, leaving the field in
-// place, when the field is missing or is not an object.
+// place, when the field is missing or is not an object. An empty object also
+// stays in place, since nothing can be taken from it.
 func (o *object) sub(key string) *object {
 	child := parseObject(o.fields[key])
-	if child == nil {
-		return nil
+	if child == nil || len(child.fields) == 0 {
+		return child
 	}
 	delete(o.fields, key)
 	o.subs[key] = child
@@ -62,24 +62,22 @@ func (o *object) sub(key string) *object {
 }
 
 // notObject is the other of an item that is not a JSON object: the item as it is.
-func notObject(raw json.RawMessage) map[string]json.RawMessage {
-	return map[string]json.RawMessage{"value": raw}
+func notObject(raw json.RawMessage) map[string]any {
+	return map[string]any{"value": raw}
 }
 
-// rest is everything not taken, never nil.
-func (o *object) rest() map[string]json.RawMessage {
-	out := make(map[string]json.RawMessage, len(o.fields)+len(o.subs))
-	maps.Copy(out, o.fields)
+// rest is everything not taken, never nil: the fields as they are, and what is
+// left of each sub-object under its name. A sub-object with nothing left is
+// omitted, since all of it is in the organised result.
+func (o *object) rest() map[string]any {
+	out := make(map[string]any, len(o.fields)+len(o.subs))
+	for k, v := range o.fields {
+		out[k] = v
+	}
 	for k, child := range o.subs {
-		left := child.rest()
-		if len(left) == 0 {
-			continue
+		if left := child.rest(); len(left) > 0 {
+			out[k] = left
 		}
-		raw, err := json.Marshal(left)
-		if err != nil {
-			continue // unreachable: the map holds valid JSON values
-		}
-		out[k] = raw
 	}
 	return out
 }

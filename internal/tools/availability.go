@@ -52,14 +52,14 @@ type Window struct {
 
 // AvailabilityResult is the outcome for one query; a failed query has only query, status "error" and error.
 type AvailabilityResult struct {
-	Query     AvailabilityQuery          `json:"query"`
-	Status    string                     `json:"status"`
-	Earliest  *Earliest                  `json:"earliest"`
-	SlotCount *int                       `json:"slot_count,omitzero"`
-	Slots     []Day                      `json:"slots,omitzero"`
-	Reason    *string                    `json:"reason"`
-	Other     map[string]json.RawMessage `json:"other,omitzero"`
-	Error     string                     `json:"error,omitempty"`
+	Query     AvailabilityQuery `json:"query"`
+	Status    string            `json:"status"`
+	Earliest  *Earliest         `json:"earliest"`
+	SlotCount *int              `json:"slot_count,omitzero"`
+	Slots     []Day             `json:"slots,omitzero"`
+	Reason    *string           `json:"reason"`
+	Other     map[string]any    `json:"other,omitzero"`
+	Error     string            `json:"error,omitempty"`
 }
 
 // Earliest is the first free slot: in the window, else Doctolib's next_slot.

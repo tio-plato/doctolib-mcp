@@ -266,3 +266,32 @@ func geoHandler(answers map[string]string) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, answer)
 	}
 }
+
+func TestSearchKeepsEmptyObjects(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	var resp map[string]any
+	if err := json.Unmarshal(readFile(t, "search.json"), &resp); err != nil {
+		t.Fatal(err)
+	}
+	resp["searchedLocation"] = map[string]any{}
+	first, ok := resp["healthcareProviders"].([]any)[0].(map[string]any)
+	if !ok {
+		t.Fatal("bad fixture")
+	}
+	first["speciality"] = map[string]any{}
+	body, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.fake.handle(searchPath, func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusPartialContent, string(body))
+	})
+
+	out, err := e.tools.Search(t.Context(), tools.SearchInput{Query: "dentiste", Place: "75001"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertJSON(t, out.Other["searchedLocation"], `{}`)
+	assertJSON(t, out.Results[0].Other["speciality"], `{}`)
+}

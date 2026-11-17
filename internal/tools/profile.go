@@ -21,35 +21,35 @@ type ProfileInput struct {
 
 // ProfileOutput is the result of practitioner_profile.
 type ProfileOutput struct {
-	Name               *string                    `json:"name"`
-	Speciality         *string                    `json:"speciality"`
-	TelehealthEnabled  *bool                      `json:"telehealth_enabled"`
-	ProfileURL         string                     `json:"profile_url"`
-	Places             []ProfilePlace             `json:"places"`
-	Practitioners      []ProfilePractitioner      `json:"practitioners"`
-	Motives            []Motive                   `json:"motives"`
-	UnavailableAgendas []UnavailableAgenda        `json:"unavailable_agendas"`
-	Other              map[string]json.RawMessage `json:"other"`
+	Name               *string               `json:"name"`
+	Speciality         *string               `json:"speciality"`
+	TelehealthEnabled  *bool                 `json:"telehealth_enabled"`
+	ProfileURL         string                `json:"profile_url"`
+	Places             []ProfilePlace        `json:"places"`
+	Practitioners      []ProfilePractitioner `json:"practitioners"`
+	Motives            []Motive              `json:"motives"`
+	UnavailableAgendas []UnavailableAgenda   `json:"unavailable_agendas"`
+	Other              map[string]any        `json:"other"`
 }
 
 // ProfilePlace is one practice of the profile.
 type ProfilePlace struct {
-	PracticeID *int64                     `json:"practice_id"`
-	Name       *string                    `json:"name"`
-	Address    *string                    `json:"address"`
-	Zipcode    *string                    `json:"zipcode"`
-	City       *string                    `json:"city"`
-	Lat        *float64                   `json:"lat"`
-	Lng        *float64                   `json:"lng"`
-	Phone      *string                    `json:"phone"`
-	Other      map[string]json.RawMessage `json:"other"`
+	PracticeID *int64         `json:"practice_id"`
+	Name       *string        `json:"name"`
+	Address    *string        `json:"address"`
+	Zipcode    *string        `json:"zipcode"`
+	City       *string        `json:"city"`
+	Lat        *float64       `json:"lat"`
+	Lng        *float64       `json:"lng"`
+	Phone      *string        `json:"phone"`
+	Other      map[string]any `json:"other"`
 }
 
 // ProfilePractitioner is one practitioner of the profile; an organisation often has several.
 type ProfilePractitioner struct {
-	ID    *int64                     `json:"id"`
-	Name  *string                    `json:"name"`
-	Other map[string]json.RawMessage `json:"other"`
+	ID    *int64         `json:"id"`
+	Name  *string        `json:"name"`
+	Other map[string]any `json:"other"`
 }
 
 // Motive is one visit motive and where it is offered.
@@ -59,9 +59,9 @@ type Motive struct {
 	Telehealth *bool   `json:"telehealth"`
 	Category   *string `json:"category"`
 	// NewPatientRestrictions is Doctolib's value as it is.
-	NewPatientRestrictions json.RawMessage            `json:"new_patient_restrictions"`
-	Offered                []Offer                    `json:"offered"`
-	Other                  map[string]json.RawMessage `json:"other"`
+	NewPatientRestrictions json.RawMessage `json:"new_patient_restrictions"`
+	Offered                []Offer         `json:"offered"`
+	Other                  map[string]any  `json:"other"`
 }
 
 // Offer is one (practice, agenda) that offers a visit motive.

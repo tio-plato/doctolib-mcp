@@ -30,42 +30,42 @@ type SearchInput struct {
 type SearchOutput struct {
 	Place place.Place `json:"place"`
 	// SearchedLocation is Doctolib's search point, or the centre of the box when Doctolib gives none.
-	SearchedLocation place.Point                `json:"searched_location"`
-	Total            *int                       `json:"total"`
-	Page             int                        `json:"page"`
-	PageSize         int                        `json:"page_size"`
-	HasMore          bool                       `json:"has_more"`
-	Results          []Practitioner             `json:"results"`
-	Other            map[string]json.RawMessage `json:"other"`
+	SearchedLocation place.Point    `json:"searched_location"`
+	Total            *int           `json:"total"`
+	Page             int            `json:"page"`
+	PageSize         int            `json:"page_size"`
+	HasMore          bool           `json:"has_more"`
+	Results          []Practitioner `json:"results"`
+	Other            map[string]any `json:"other"`
 }
 
 // Practitioner is one search result: a practitioner or an organisation at one practice.
 type Practitioner struct {
-	Name              string                     `json:"name"`
-	Kind              string                     `json:"kind"`
-	Title             *string                    `json:"title"`
-	FirstName         *string                    `json:"first_name"`
-	LastName          *string                    `json:"last_name"`
-	Speciality        *string                    `json:"speciality"`
-	SpecialitySlug    *string                    `json:"speciality_slug"`
-	Address           *string                    `json:"address"`
-	Zipcode           *string                    `json:"zipcode"`
-	City              *string                    `json:"city"`
-	Lat               *float64                   `json:"lat"`
-	Lng               *float64                   `json:"lng"`
-	DistanceKm        *float64                   `json:"distance_km"`
-	InArea            bool                       `json:"in_area"`
-	Languages         []Label                    `json:"languages"`
-	Sector            *Label                     `json:"sector"`
-	Telehealth        *bool                      `json:"telehealth"`
-	BookableOnline    bool                       `json:"bookable_online"`
-	AllowNewPatients  *bool                      `json:"allow_new_patients"`
-	PaymentMeans      json.RawMessage            `json:"payment_means"`
-	MinimumFee        json.RawMessage            `json:"minimum_fee"`
-	MatchedMotive     *MatchedMotive             `json:"matched_motive"`
-	AvailabilityQuery *AvailabilityQuery         `json:"availability_query"`
-	ProfileURL        *string                    `json:"profile_url"`
-	Other             map[string]json.RawMessage `json:"other"`
+	Name              string             `json:"name"`
+	Kind              string             `json:"kind"`
+	Title             *string            `json:"title"`
+	FirstName         *string            `json:"first_name"`
+	LastName          *string            `json:"last_name"`
+	Speciality        *string            `json:"speciality"`
+	SpecialitySlug    *string            `json:"speciality_slug"`
+	Address           *string            `json:"address"`
+	Zipcode           *string            `json:"zipcode"`
+	City              *string            `json:"city"`
+	Lat               *float64           `json:"lat"`
+	Lng               *float64           `json:"lng"`
+	DistanceKm        *float64           `json:"distance_km"`
+	InArea            bool               `json:"in_area"`
+	Languages         []Label            `json:"languages"`
+	Sector            *Label             `json:"sector"`
+	Telehealth        *bool              `json:"telehealth"`
+	BookableOnline    bool               `json:"bookable_online"`
+	AllowNewPatients  *bool              `json:"allow_new_patients"`
+	PaymentMeans      json.RawMessage    `json:"payment_means"`
+	MinimumFee        json.RawMessage    `json:"minimum_fee"`
+	MatchedMotive     *MatchedMotive     `json:"matched_motive"`
+	AvailabilityQuery *AvailabilityQuery `json:"availability_query"`
+	ProfileURL        *string            `json:"profile_url"`
+	Other             map[string]any     `json:"other"`
 }
 
 // MatchedMotive is the visit motive Doctolib matched to the query.
