@@ -115,3 +115,19 @@ func TestSearchSchemaRefusesUnknownLanguageCodes(t *testing.T) {
 		t.Errorf("sent %d Doctolib requests", n)
 	}
 }
+
+func TestAvailabilitySchemaRefusesNullAgendas(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	cs := connect(t, e)
+
+	res, err := cs.CallTool(t.Context(), &mcp.CallToolParams{Name: "availability", Arguments: map[string]any{
+		"queries": []any{map[string]any{"visit_motive_id": 3001, "agenda_ids": nil, "practice_id": 2001}},
+	}})
+	if err == nil && !res.IsError {
+		t.Fatal("agenda_ids null was accepted")
+	}
+	if n := len(e.fake.doctolibRequests()); n != 0 {
+		t.Errorf("sent %d Doctolib requests", n)
+	}
+}

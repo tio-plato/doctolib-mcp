@@ -46,7 +46,8 @@ func NewServer(t *Tools, version string) (*mcp.Server, error) {
 		return nil, err
 	}
 	searchIn.Properties["page"].Minimum = jsonschema.Ptr(0.0)
-	searchIn.Properties["languages"].Items.Enum = toAny(languageCodes())
+	languages := searchIn.Properties["languages"]
+	languages.Items.Enum = toAny(languageCodes())
 	searchOut, err := schemaFor[SearchOutput]()
 	if err != nil {
 		return nil, err
@@ -69,7 +70,12 @@ func NewServer(t *Tools, version string) (*mcp.Server, error) {
 	}
 	queries := availabilityIn.Properties["queries"]
 	queries.MinItems, queries.MaxItems = jsonschema.Ptr(1), jsonschema.Ptr(MaxQueries)
-	queries.Items.Properties["agenda_ids"].MinItems = jsonschema.Ptr(1)
+	agendas := queries.Items.Properties["agenda_ids"]
+	agendas.MinItems = jsonschema.Ptr(1)
+	// Inferred slices also accept null, which would bypass the item counts.
+	for _, s := range []*jsonschema.Schema{languages, queries, agendas} {
+		s.Type, s.Types = "array", nil
+	}
 	availabilityIn.Properties["start_date"].Pattern = `^[0-9]{4}-[0-9]{2}-[0-9]{2}$`
 	availabilityOut, err := schemaFor[AvailabilityOutput]()
 	if err != nil {
