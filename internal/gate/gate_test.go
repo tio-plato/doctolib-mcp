@@ -20,8 +20,9 @@ const (
 	helperDirEnv   = "DOCTOLIB_GATE_HELPER_DIR"
 	helperStartEnv = "DOCTOLIB_GATE_HELPER_START"
 	interval       = 500 * time.Millisecond
-	// scheduling is how late a child may print the time it got through.
-	scheduling = 100 * time.Millisecond
+	// scheduling is how late a child may print the time it got through: a
+	// gate that does not wait lets both through at once, far below this.
+	scheduling = interval / 2
 )
 
 // TestHelperProcess is not a test: run as a child process, it waits for the
