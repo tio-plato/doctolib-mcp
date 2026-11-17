@@ -97,12 +97,16 @@ func TestProfileKeepsAnEmptyDataWrapper(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	e.fake.handle(profilePath, func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, `{"data": {}, "meta": 1}`)
+		writeJSON(w, http.StatusOK, `{"data": {}, "meta": 1, "places": [{"name": "Cabinet"}]}`)
 	})
 
 	out, err := e.tools.Profile(t.Context(), tools.ProfileInput{ProfileURL: e.base + "/dentiste/paris/ada-example"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertJSON(t, out.Other, `{"data": {}, "meta": 1}`)
+	// Fields next to the wrapper are not the profile's, empty wrapper or not.
+	assertJSON(t, out.Other, `{"data": {}, "meta": 1, "places": [{"name": "Cabinet"}]}`)
+	if len(out.Places) != 0 {
+		t.Errorf("organised places from outside the data wrapper: %+v", out.Places)
+	}
 }
