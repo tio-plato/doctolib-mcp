@@ -195,3 +195,26 @@ func TestAvailabilityOddSlotFormats(t *testing.T) {
 	}
 	assertJSON(t, r.SlotCount, `1`)
 }
+
+func TestAvailabilityNextSlotOfAnotherType(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.fake.handle(availabilityPath, availabilityByMotive(map[string]func(http.ResponseWriter){
+		"1": jsonAnswer(
+			`{"total": 0, "availabilities": [], "next_slot": {"start_date": "2027-01-12T10:00:00.000+01:00"}}`,
+		),
+	}))
+
+	out, err := e.tools.Availability(t.Context(), tools.AvailabilityInput{
+		Queries: []tools.AvailabilityQuery{query(1, 1)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Doctolib gives a next slot, so it is not "none visible", even if its shape cannot be read.
+	r := out.Results[0]
+	if r.Status != tools.StatusNextSlotKnown || r.Earliest != nil {
+		t.Errorf("status %q, earliest %+v", r.Status, r.Earliest)
+	}
+	assertJSON(t, r.Other["next_slot"], `{"start_date": "2027-01-12T10:00:00.000+01:00"}`)
+}

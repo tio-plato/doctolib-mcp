@@ -200,14 +200,17 @@ func organiseAvailability(raw []byte, q AvailabilityQuery) AvailabilityResult {
 	}
 
 	o.take("reason", &r.Reason)
-	var next *string
+	// A next_slot of any type counts as given; only a string can be read.
+	var nextRaw json.RawMessage
+	given := o.peek("next_slot", &nextRaw) && string(nextRaw) != "null"
+	var next string
 	o.peek("next_slot", &next)
 	switch {
 	case count > 0:
 		r.Status = StatusHasSlots
 	case r.Reason != nil && *r.Reason == "not_opened_availability":
 		r.Status = StatusNotOpened
-	case next != nil:
+	case given:
 		r.Status = StatusNextSlotKnown
 	default:
 		r.Status = StatusNoneVisible
@@ -218,8 +221,8 @@ func organiseAvailability(raw []byte, q AvailabilityQuery) AvailabilityResult {
 	switch {
 	case first != nil:
 		r.Earliest = earliest(*first, "window")
-	case count == 0 && next != nil:
-		if e := nextSlot(*next); e != nil {
+	case count == 0 && given:
+		if e := nextSlot(next); e != nil {
 			o.drop("next_slot")
 			r.Earliest = e
 		}
