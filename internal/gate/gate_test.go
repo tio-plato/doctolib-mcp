@@ -3,6 +3,7 @@ package gate_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -104,5 +105,29 @@ func TestClockSteppingBackDoesNotStall(t *testing.T) {
 	err = g.Acquire(ctx)
 	if err != nil {
 		t.Fatalf("second request after the clock stepped back: %v", err)
+	}
+}
+
+// A process waiting for the interval does not send once another one has written the block marker.
+func TestBlockWrittenWhileWaitingIsHonoured(t *testing.T) {
+	t.Parallel()
+	g := gate.New(gate.Config{
+		Dir: t.TempDir(), Interval: interval, Hourly: gate.DefaultHourly, Daily: gate.DefaultDaily, Now: nil,
+	})
+	err := g.Acquire(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiting := make(chan error, 1)
+	go func() { waiting <- g.Acquire(t.Context()) }()
+	time.Sleep(interval / 5)
+	_, err = g.Block("/availabilities.json", 403, "blocked")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var blocked *gate.BlockedError
+	err = <-waiting
+	if !errors.As(err, &blocked) {
+		t.Errorf("the waiting request got %v, want a block", err)
 	}
 }

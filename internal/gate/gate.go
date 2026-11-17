@@ -122,44 +122,60 @@ func (g *Gate) MarkerPath() string {
 // Acquire returns once a request may be sent and records it as sent.
 //
 // It refuses while the block marker exists or a cap is reached, and otherwise
-// waits until the interval since the last request has passed.
+// waits until the interval since the last request has passed. It waits
+// without the lock and checks again after waking, so a block written
+// meanwhile by another process stops it.
 func (g *Gate) Acquire(ctx context.Context) error {
+	var waitedFor time.Time
+	for {
+		wait, last, err := g.pass(waitedFor)
+		if err != nil || wait <= 0 {
+			return err
+		}
+		err = sleep(ctx, wait)
+		if err != nil {
+			return err
+		}
+		waitedFor = last
+	}
+}
+
+// pass checks the marker and the caps and, once the interval after the last
+// request has passed, records the request. Otherwise it returns how long to
+// wait and the request it waits after; waitedFor is the one already waited
+// after, so a clock that stepped back never makes it wait twice.
+func (g *Gate) pass(waitedFor time.Time) (time.Duration, time.Time, error) {
 	unlock, err := g.lock()
 	if err != nil {
-		return err
+		return 0, time.Time{}, err
 	}
 	defer unlock()
 
 	marker, blocked, err := g.readMarker()
 	if err != nil {
-		return err
+		return 0, time.Time{}, err
 	}
 	if blocked {
-		return &BlockedError{Marker: marker, MarkerPath: g.MarkerPath(), WriteErr: nil}
+		return 0, time.Time{}, &BlockedError{Marker: marker, MarkerPath: g.MarkerPath(), WriteErr: nil}
 	}
 
 	sent, err := g.readLog()
 	if err != nil {
-		return err
+		return 0, time.Time{}, err
 	}
 	now := g.now()
 	sent = since(sent, now.Add(-day))
 	err = g.checkCaps(sent, now)
 	if err != nil {
-		return err
+		return 0, time.Time{}, err
 	}
-	if n := len(sent); n > 0 {
-		// Never more than one interval: after the clock steps back, the
-		// wait would otherwise last as long as the step.
+	if n := len(sent); n > 0 && !sent[n-1].Equal(waitedFor) {
+		// Never more than one interval, even after the clock steps back.
 		if wait := min(sent[n-1].Add(g.interval).Sub(now), g.interval); wait > 0 {
-			err = sleep(ctx, wait)
-			if err != nil {
-				return err
-			}
-			now = g.now()
+			return wait, sent[n-1], nil
 		}
 	}
-	return g.writeLog(append(sent, now))
+	return 0, time.Time{}, g.writeLog(append(sent, now))
 }
 
 // Block writes the block marker for the response to path, stamped with the
