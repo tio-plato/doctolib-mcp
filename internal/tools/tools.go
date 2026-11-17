@@ -152,7 +152,9 @@ func ErrorText(err error) string {
 	}
 	if errors.As(err, &partial) && len(partial.done.Results) > 0 {
 		done, merr := json.Marshal(partial.done)
-		if merr == nil {
+		if merr != nil {
+			text += fmt.Sprintf(" The results fetched before it stopped could not be encoded: %v.", merr)
+		} else {
 			text += " Results fetched before it stopped, not to be fetched again: " + string(done)
 		}
 	}
