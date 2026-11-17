@@ -63,11 +63,12 @@ type AvailabilityResult struct {
 }
 
 // Earliest is the first free slot: in the window, else Doctolib's next_slot.
+// Time is null when Doctolib gives only a date.
 type Earliest struct {
-	Date   string `json:"date"`
-	Time   string `json:"time"`
-	ISO    string `json:"iso"`
-	Source string `json:"source"`
+	Date   string  `json:"date"`
+	Time   *string `json:"time"`
+	ISO    string  `json:"iso"`
+	Source string  `json:"source"`
 }
 
 // Day lists the free times of one day, in order.
@@ -210,12 +211,15 @@ func organiseAvailability(raw []byte, q AvailabilityQuery) AvailabilityResult {
 		r.Status = StatusNoneVisible
 	}
 
-	if first != nil {
+	// next_slot is after the window: it is the earliest only when the window
+	// has no slot at all, not when its slots are in a shape the server does not know.
+	switch {
+	case first != nil:
 		r.Earliest = earliest(*first, "window")
-	} else if next != nil {
-		if at, err := time.Parse(time.RFC3339, *next); err == nil {
+	case count == 0 && next != nil:
+		if e := nextSlot(*next); e != nil {
 			o.drop("next_slot")
-			r.Earliest = earliest(slot{at: at, iso: *next}, "next_slot")
+			r.Earliest = e
 		}
 	}
 	r.Other = o.rest()
@@ -243,5 +247,17 @@ func parseSlot(raw json.RawMessage) (slot, bool) {
 
 // earliest keeps the local date and time the ISO time is written in (Paris time from Doctolib).
 func earliest(s slot, source string) *Earliest {
-	return &Earliest{Date: s.at.Format(dateLayout), Time: s.at.Format("15:04"), ISO: s.iso, Source: source}
+	hm := s.at.Format("15:04")
+	return &Earliest{Date: s.at.Format(dateLayout), Time: &hm, ISO: s.iso, Source: source}
+}
+
+// nextSlot reads Doctolib's next_slot, a full ISO time or a bare date; nil for anything else.
+func nextSlot(raw string) *Earliest {
+	if at, err := time.Parse(time.RFC3339, raw); err == nil {
+		return earliest(slot{at: at, iso: raw}, "next_slot")
+	}
+	if day, err := time.Parse(dateLayout, raw); err == nil {
+		return &Earliest{Date: day.Format(dateLayout), Time: nil, ISO: raw, Source: "next_slot"}
+	}
+	return nil
 }

@@ -162,3 +162,36 @@ func TestAvailabilityQueryErrorStaysInItsResult(t *testing.T) {
 		t.Errorf("other queries: %q, %q", out.Results[0].Status, out.Results[2].Status)
 	}
 }
+
+func TestAvailabilityOddSlotFormats(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.fake.handle(availabilityPath, availabilityByMotive(map[string]func(http.ResponseWriter){
+		// A next slot given as a bare date.
+		"1": jsonAnswer(`{"total": 0, "availabilities": [], "next_slot": "2027-01-12"}`),
+		// A slot in the window, in a shape the server does not know.
+		"2": jsonAnswer(`{"total": 1, "availabilities": [{"date": "2026-11-18", "slots": [{"start": "09:00"}]}],
+			"next_slot": "2027-01-12T10:00:00.000+01:00"}`),
+	}))
+
+	out, err := e.tools.Availability(t.Context(), tools.AvailabilityInput{
+		Queries: []tools.AvailabilityQuery{query(1, 1), query(2, 1)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := out.Results[0]; r.Status != tools.StatusNextSlotKnown {
+		t.Errorf("bare-date next slot: status %q", r.Status)
+	}
+	assertJSON(
+		t,
+		out.Results[0].Earliest,
+		`{"date": "2027-01-12", "time": null, "iso": "2027-01-12", "source": "next_slot"}`,
+	)
+	// The window has a slot, so the next slot after the window is not the earliest one.
+	r := out.Results[1]
+	if r.Status != tools.StatusHasSlots || r.Earliest != nil {
+		t.Errorf("unknown slot shape: status %q, earliest %+v", r.Status, r.Earliest)
+	}
+	assertJSON(t, r.SlotCount, `1`)
+}
