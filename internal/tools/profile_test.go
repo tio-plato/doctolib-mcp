@@ -92,3 +92,17 @@ func TestProfileKeepsBothFieldsOfTheSameName(t *testing.T) {
 	}
 	assertJSON(t, out.Other, `{"meta": "outer value", "data": {"meta": "inner value"}}`)
 }
+
+func TestProfileKeepsAnEmptyDataWrapper(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.fake.handle(profilePath, func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, `{"data": {}, "meta": 1}`)
+	})
+
+	out, err := e.tools.Profile(t.Context(), tools.ProfileInput{ProfileURL: e.base + "/dentiste/paris/ada-example"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertJSON(t, out.Other, `{"data": {}, "meta": 1}`)
+}

@@ -125,7 +125,7 @@ func organiseProfile(raw []byte, profileURL string) (*ProfileOutput, error) {
 	}
 	// The fields sit in a data wrapper; what is left of them goes to the top of other.
 	data := top
-	if d := parseObject(top.fields["data"]); d != nil {
+	if d := parseObject(top.fields["data"]); d != nil && len(d.fields) > 0 {
 		top.drop("data")
 		data = d
 	}
