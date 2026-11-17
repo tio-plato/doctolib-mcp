@@ -97,3 +97,21 @@ func TestAvailabilitySchemaRefusesMoreThanOnePage(t *testing.T) {
 		t.Errorf("sent %d Doctolib requests", n)
 	}
 }
+
+func TestSearchSchemaRefusesUnknownLanguageCodes(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	cs := connect(t, e)
+
+	// ISO's en is not Doctolib's code for English, gb is.
+	res, err := cs.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "search_practitioners",
+		Arguments: map[string]any{"query": "dentiste", "place": "75001", "languages": []string{"en"}},
+	})
+	if err == nil && !res.IsError {
+		t.Fatal("language en was accepted")
+	}
+	if n := len(e.fake.doctolibRequests()); n != 0 {
+		t.Errorf("sent %d Doctolib requests", n)
+	}
+}

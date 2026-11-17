@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 	_ "time/tzdata" // the Paris date must not depend on the host's zoneinfo
 
@@ -45,6 +46,7 @@ func NewServer(t *Tools, version string) (*mcp.Server, error) {
 		return nil, err
 	}
 	searchIn.Properties["page"].Minimum = jsonschema.Ptr(0.0)
+	searchIn.Properties["languages"].Items.Enum = toAny(languageCodes())
 	searchOut, err := schemaFor[SearchOutput]()
 	if err != nil {
 		return nil, err
@@ -151,12 +153,28 @@ func ErrorText(err error) string {
 	return text
 }
 
+func toAny(ss []string) []any {
+	out := make([]any, 0, len(ss))
+	for _, s := range ss {
+		out = append(out, s)
+	}
+	return out
+}
+
 const blockedRule = `If a tool error starts with "blocked": stop, tell the user the error as it is, ` +
 	"do not retry, and do not reach Doctolib through a browser or any other way. " +
 	`If it starts with "budget": tell the user when requests resume and do not try another way.`
 
 func searchDescription() string {
-	languages := "Language codes are Doctolib's own, not ISO (English is gb)."
+	var codes strings.Builder
+	names := languageNames()
+	for i, c := range languageCodes() {
+		if i > 0 {
+			codes.WriteString(", ")
+		}
+		codes.WriteString(c + "=" + names[c])
+	}
+	languages := "Language codes are Doctolib's own, not ISO: " + codes.String() + "."
 	return `Doctolib (France): search practitioners near a French postcode or town.
 Read-only and anonymous, doctolib.fr only. It never books: give the user a result's profile_url, where they book themselves.
 Doctolib orders results by distance and does not keep them inside the area. Each result has distance_km, the straight-line distance from searched_location (Doctolib's search point), and in_area, true when its postcode is one of place.postcodes; place is what the postcode or name resolved to.
