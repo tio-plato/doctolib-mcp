@@ -209,7 +209,7 @@ Read-only and anonymous, doctolib.fr only. Takes 1 to 20 availability_query obje
 Each result covers 15 days from start_date (window, both ends included). status, first rule that matches:
 - has_slots: free slots in the window;
 - not_opened: no slot in the window and Doctolib says the slots are not opened yet (reason not_opened_availability);
-- next_slot_known: no slot in the window, but Doctolib gives the next slot after it;
+- next_slot_known: no slot in the window, but Doctolib gives the next slot after it (if its format cannot be read, earliest is null and other.next_slot holds it);
 - none_visible: no slot in the window and no next slot. It means no bookable slot can be seen, not that the practitioner is fully booked: never say fully booked.
 earliest is the first slot in the window (source window); when the window has no slot, Doctolib's next slot (source next_slot; time is null when Doctolib gives only a date); else null. slots lists the days with free times, in the local time Doctolib writes them in (Paris time for mainland France); other.availabilities keeps the full ISO times. A slot in a shape the server does not know counts in slot_count but is not listed.
 A query that fails has status error and an error text; the others go on. A block or a reached cap stops the call, and the error carries the results already fetched.
