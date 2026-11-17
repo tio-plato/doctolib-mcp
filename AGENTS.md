@@ -10,8 +10,7 @@ does.
 - Checks: `nix flake check`. It builds the package, which runs every test, and runs golangci-lint.
 - Landing: push the commit SHA to `main` (`git push origin <sha>:main`).
 - Shipping: there is no release step.
-- Commit messages follow Conventional Commits and carry no tracker reference: no `Spec:` line, no ticket key.
-  The repository is meant to be public; the tracker is private.
+- Commit messages follow Conventional Commits.
 
 ## No personal information
 
