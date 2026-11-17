@@ -131,3 +131,17 @@ func TestAvailabilitySchemaRefusesNullAgendas(t *testing.T) {
 		t.Errorf("sent %d Doctolib requests", n)
 	}
 }
+
+func TestSearchAcceptsNullForOptionalLanguages(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	cs := connect(t, e)
+
+	res, err := cs.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "search_practitioners",
+		Arguments: map[string]any{"query": "dentiste", "place": "75001", "languages": nil},
+	})
+	if err != nil || res.IsError {
+		t.Fatalf("languages null was refused: %v %+v", err, res)
+	}
+}

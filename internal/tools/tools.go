@@ -73,7 +73,7 @@ func NewServer(t *Tools, version string) (*mcp.Server, error) {
 	agendas := queries.Items.Properties["agenda_ids"]
 	agendas.MinItems = jsonschema.Ptr(1)
 	// Inferred slices also accept null, which would bypass the item counts.
-	for _, s := range []*jsonschema.Schema{languages, queries, agendas} {
+	for _, s := range []*jsonschema.Schema{queries, agendas} {
 		s.Type, s.Types = "array", nil
 	}
 	availabilityIn.Properties["start_date"].Pattern = `^[0-9]{4}-[0-9]{2}-[0-9]{2}$`
