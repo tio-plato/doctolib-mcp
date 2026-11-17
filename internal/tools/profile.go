@@ -169,9 +169,23 @@ func organiseProfile(raw []byte, profileURL string) (*ProfileOutput, error) {
 	}
 	out.Other = data.rest()
 	if data != top {
-		maps.Copy(out.Other, top.rest())
+		out.Other = unwrap(out.Other, top.rest())
 	}
 	return out, nil
+}
+
+// unwrap puts what is left of the data wrapper next to what is left inside
+// it. When both levels have a field of the same name, it keeps Doctolib's
+// nesting instead, so neither is lost.
+func unwrap(inner, wrapper map[string]any) map[string]any {
+	for k := range wrapper {
+		if _, clash := inner[k]; clash {
+			wrapper["data"] = inner
+			return wrapper
+		}
+	}
+	maps.Copy(inner, wrapper)
+	return inner
 }
 
 // motiveContext is what organising a motive needs from the rest of the profile.

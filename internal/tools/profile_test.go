@@ -78,3 +78,17 @@ func TestProfileOrganisesMotivesAndAgendas(t *testing.T) {
 	assertJSON(t, out.Other["profile"], `{"id": 4001, "name_with_title_and_determiner": "Dr Ada Example",
 		"subtitle": "Dentiste", "speciality": {"id": 7, "slug": "dentiste", "kind": "medical"}, "organization": false}`)
 }
+
+func TestProfileKeepsBothFieldsOfTheSameName(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.fake.handle(profilePath, func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, `{"meta": "outer value", "data": {"meta": "inner value", "visit_motives": []}}`)
+	})
+
+	out, err := e.tools.Profile(t.Context(), tools.ProfileInput{ProfileURL: e.base + "/dentiste/paris/ada-example"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertJSON(t, out.Other, `{"meta": "outer value", "data": {"meta": "inner value"}}`)
+}
