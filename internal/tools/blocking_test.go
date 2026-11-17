@@ -93,6 +93,7 @@ func TestBlockStopsEveryToolUntilTheMarkerIsDeleted(t *testing.T) {
 func TestBlockResponses(t *testing.T) {
 	t.Parallel()
 	for name, answer := range map[string]http.HandlerFunc{
+		"403 JSON": func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, http.StatusForbidden, `{}`) },
 		"429":      func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, http.StatusTooManyRequests, `{}`) },
 		"200 HTML": func(w http.ResponseWriter, _ *http.Request) { writeHTML(w, http.StatusOK, blockPage) },
 		"503 HTML": func(w http.ResponseWriter, _ *http.Request) { writeHTML(w, http.StatusServiceUnavailable, blockPage) },

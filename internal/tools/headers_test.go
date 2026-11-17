@@ -36,12 +36,21 @@ func TestEveryEndpointGetsTheSameBrowserHeaders(t *testing.T) {
 				t.Errorf("%s %s: %s %q differs from %q", r.Method, r.Path, h, r.Header.Get(h), first.Get(h))
 			}
 		}
-		wantOrigin := ""
-		if r.Method == http.MethodPost {
-			wantOrigin = e.base
-		}
-		if got := r.Header.Get("Origin"); got != wantOrigin {
-			t.Errorf("%s %s: Origin %q, want %q", r.Method, r.Path, got, wantOrigin)
-		}
+		checkPostHeaders(t, r, e.base)
+	}
+}
+
+// checkPostHeaders checks that a POST, and only a POST, carries Origin and a JSON Content-Type, as browsers send them.
+func checkPostHeaders(t *testing.T, r request, base string) {
+	t.Helper()
+	wantOrigin, wantType := "", ""
+	if r.Method == http.MethodPost {
+		wantOrigin, wantType = base, "application/json"
+	}
+	if got := r.Header.Get("Origin"); got != wantOrigin {
+		t.Errorf("%s %s: Origin %q, want %q", r.Method, r.Path, got, wantOrigin)
+	}
+	if got := r.Header.Get("Content-Type"); got != wantType {
+		t.Errorf("%s %s: Content-Type %q, want %q", r.Method, r.Path, got, wantType)
 	}
 }
