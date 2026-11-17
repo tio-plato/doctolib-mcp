@@ -123,8 +123,10 @@ func organiseProfile(raw []byte, profileURL string) (*ProfileOutput, error) {
 	if top == nil {
 		return nil, fmt.Errorf("decode profile response: %w", errNotObject)
 	}
+	// The fields sit in a data wrapper; what is left of them goes to the top of other.
 	data := top
-	if d := top.sub("data"); d != nil {
+	if d := parseObject(top.fields["data"]); d != nil {
+		top.drop("data")
 		data = d
 	}
 	out := &ProfileOutput{

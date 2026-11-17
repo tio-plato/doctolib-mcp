@@ -1,7 +1,9 @@
 package tools_test
 
 import (
+	"maps"
 	"net/http"
+	"slices"
 	"testing"
 
 	"github.com/tio-plato/doctolib-mcp/internal/tools"
@@ -59,15 +61,19 @@ func TestProfileOrganisesMotivesAndAgendas(t *testing.T) {
 	assertJSON(t, out.Practitioners[0], `{"id": 5001, "name": "Dr Ada EXAMPLE", "other": {"profile_id": 4001,
 		"name": "EXAMPLE ", "name_with_title_and_determiner": "Dr Ada Example", "speciality": "Dentiste"}}`)
 
-	for _, key := range []string{"testOnlyUnknownField", "agendas", "visit_motive_categories", "specialities"} {
-		if _, ok := out.Other[key]; !ok {
-			t.Errorf("other lacks %s", key)
-		}
+	// What is left of data, at the top of other, once and only once: not the organised
+	// places, practitioners and motives, and not again under "data".
+	otherKeys := slices.Sorted(maps.Keys(out.Other))
+	wantKeys := []string{
+		"agendas",
+		"filtered_visit_motives",
+		"profile",
+		"specialities",
+		"testOnlyUnknownField",
+		"visit_motive_categories",
 	}
-	for _, key := range []string{"places", "practitioners", "visit_motives"} {
-		if _, ok := out.Other[key]; ok {
-			t.Errorf("other repeats the organised %s", key)
-		}
+	if !slices.Equal(otherKeys, wantKeys) {
+		t.Errorf("other has %v, want %v", otherKeys, wantKeys)
 	}
 	assertJSON(t, out.Other["profile"], `{"id": 4001, "name_with_title_and_determiner": "Dr Ada Example",
 		"subtitle": "Dentiste", "speciality": {"id": 7, "slug": "dentiste", "kind": "medical"}, "organization": false}`)
