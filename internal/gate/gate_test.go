@@ -86,3 +86,24 @@ func passedAt(t *testing.T, output string) time.Time {
 	t.Fatalf("no passed= line in %q", output)
 	return time.Time{}
 }
+
+// After the clock steps back an hour, the next request waits one interval, not an hour.
+func TestClockSteppingBackDoesNotStall(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
+	g := gate.New(gate.Config{
+		Dir: t.TempDir(), Interval: 100 * time.Millisecond, Hourly: gate.DefaultHourly, Daily: gate.DefaultDaily,
+		Now: func() time.Time { return now },
+	})
+	err := g.Acquire(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(-time.Hour)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	err = g.Acquire(ctx)
+	if err != nil {
+		t.Fatalf("second request after the clock stepped back: %v", err)
+	}
+}

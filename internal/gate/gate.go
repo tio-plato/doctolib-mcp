@@ -149,7 +149,9 @@ func (g *Gate) Acquire(ctx context.Context) error {
 		return err
 	}
 	if n := len(sent); n > 0 {
-		if wait := sent[n-1].Add(g.interval).Sub(now); wait > 0 {
+		// Never more than one interval: after the clock steps back, the
+		// wait would otherwise last as long as the step.
+		if wait := min(sent[n-1].Add(g.interval).Sub(now), g.interval); wait > 0 {
 			err = sleep(ctx, wait)
 			if err != nil {
 				return err
