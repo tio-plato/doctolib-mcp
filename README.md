@@ -26,19 +26,21 @@ or stays under its original name in the `other` object of the same level.
 
 ### Languages and labels
 
-Agents pass languages as ISO 639 codes (`en`, `es`, `de`); the server turns them into Doctolib's own codes, which
-are partly country codes (`gb` for English, `dz` for Kabyle) and partly language codes (`hu`, `ta`).
-Its table holds the 71 codes Doctolib filters on, found by searching with every ISO 639-1 language code and ISO 3166
-country code. Their French labels are Doctolib's own, from its filter panel or practitioners' public pages. A code that is Doctolib's own spelling of another
-language is refused (`gb`; `la`, Latin in ISO, is Lao on Doctolib), and an ISO code missing from the table is sent as
-it is, with a warning. Each language of a result carries Doctolib's code, the ISO code, the English name and the
-French label; regulation sectors carry the label of Doctolib's filter panel.
+Agents pass languages as ISO 639 codes, two- or three-letter (`en` or `eng`, `es`, `de`); the server turns them into
+Doctolib's own codes, which are partly country codes (`gb` for English, `dz` for Kabyle) and partly language codes
+(`hu`, `ta`). Its table holds the 71 codes Doctolib filters on. They were found by searching with every ISO 639-1
+language code, every ISO 3166 country code and 34 three-letter codes of regional languages, such as `gcf` or `wol`.
+Their French labels are Doctolib's own, from its filter panel or practitioners' public pages. A code that is Doctolib's
+own spelling of another language is refused (`gb`; `la`, Latin in ISO, is Lao on Doctolib), and an ISO code missing
+from the table is sent as it is, with a warning. Each language of a result carries Doctolib's code, the ISO code, the
+English name and the French label; regulation sectors carry the label of Doctolib's filter panel.
 
 ### Filters Doctolib ignores
 
 Doctolib silently ignores a filter a speciality does not offer, such as video consultations for dentists. The server
-checks each result against the filters asked for and names, in `filter_warnings`, any filter the page shows was not
-applied.
+checks each result against the filters asked for and names, in `filter_warnings`, any filter the page shows Doctolib
+may not have applied, and a language filter that matched nobody. A free slot within N days cannot be checked from the
+results; the availability tool shows the actual slots.
 
 ### What the server infers
 
