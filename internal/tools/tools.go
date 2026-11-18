@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 	"time"
 	_ "time/tzdata" // the Paris date must not depend on the host's zoneinfo
 
@@ -47,7 +46,7 @@ func NewServer(t *Tools, version string) (*mcp.Server, error) {
 	}
 	searchIn.Properties["page"].Minimum = jsonschema.Ptr(0.0)
 	languages := searchIn.Properties["languages"]
-	languages.Items.Enum = toAny(languageCodes())
+	languages.Items.Pattern = `^[a-z]{2,3}$`
 	searchIn.Properties["sectors"].Items.Enum = toAny(sectorCodes())
 	searchIn.Properties["available_within_days"].Enum = []any{1, 3, 7, 14}
 	searchOut, err := schemaFor[SearchOutput]()
@@ -176,24 +175,15 @@ const blockedRule = `If a tool error starts with "blocked": stop, tell the user 
 	`If it starts with "budget": tell the user when requests resume and do not try another way.`
 
 func searchDescription() string {
-	var codes strings.Builder
-	names := languageNames()
-	for i, c := range languageCodes() {
-		if i > 0 {
-			codes.WriteString(", ")
-		}
-		codes.WriteString(c + "=" + names[c])
-	}
-	languages := "Language codes are Doctolib's own, not ISO: " + codes.String() + "."
 	return `Doctolib (France): search practitioners near a French postcode or town.
 Read-only and anonymous, doctolib.fr only. It never books: give the user a result's profile_url, where they book themselves.
 Doctolib orders results by distance and does not keep them inside the area. Each result has distance_km, the straight-line distance from searched_location (Doctolib's search point), and in_area, true when its postcode is one of place.postcodes; place is what the postcode or name resolved to.
 Pages start at 0, 20 results each; has_more tells whether another page exists.
-Filters Doctolib applies: languages; telehealth, for practitioners who offer video consultations (Doctolib offers it only for specialities that have them, not for dentists, and ignores it otherwise: check each result's telehealth); sectors, regulation sector codes as in sector.code, from the set the speciality uses (doctors: contracted_1, contracted_1_with_extra, contracted_1_with_optam, contracted_1_with_optam_co, contracted_2, contracted_2_with_optam, contracted_2_with_optam_co, non_contracted; dentists and similar: contracted, contracted_with_extra; organisations: organization_contracted, organization_non_contracted); available_within_days, 1 (today), 3, 7 or 14.
+Filters: languages, as ISO 639 codes, which the server turns into Doctolib's own codes; telehealth, for practitioners who offer video consultations (Doctolib offers it only for specialities that have them, not for dentists); sectors, regulation sector codes as in sector.code, from the set the speciality uses (doctors: contracted_1, contracted_1_with_extra, contracted_1_with_optam, contracted_1_with_optam_co, contracted_2, contracted_2_with_optam, contracted_2_with_optam_co, non_contracted; dentists and similar: contracted, contracted_with_extra; organisations: organization_contracted, organization_non_contracted); available_within_days, 1 (today), 3, 7 or 14.
 Pass a result's availability_query to the availability tool (up to 20 in one call, one page of results) and its profile_url to practitioner_profile. availability_query is null when the result cannot be booked online (bookable_online false).
 allow_new_patients is Doctolib's flag on matched_motive, copied as it is: false is inferred to mean that motive does not take new patients. It is not a verdict; judge with practitioner_profile and availability.
-sector is the regulation sector (secteur) and languages the languages spoken, as Doctolib codes; a label is null when Doctolib gives none.
-` + languages + `
+sector is the regulation sector (secteur) with Doctolib's French label. Each of languages has Doctolib's code, the ISO 639 code, the English name and the French label; they are null for a code the server does not know.
+Languages the server knows (ISO 639 code and name): ` + languageList() + `. Doctolib's own labels exist for the first 33; the others are inferred from codes whose meaning is plain.
 other holds every Doctolib field the server did not organise, under its original name.
 ` + blockedRule
 }

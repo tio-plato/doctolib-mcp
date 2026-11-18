@@ -25,7 +25,7 @@ const (
 type SearchInput struct {
 	Query     string   `json:"query"               jsonschema:"speciality or keyword, e.g. dentiste, dermatologue, kinesitherapeute, or a practitioner's name"`
 	Place     string   `json:"place"               jsonschema:"5-digit French postcode, or commune name such as Lyon or Saint-Étienne. Postcodes of Paris, Lyon and Marseille resolve to their arrondissement, the names to the whole city"`
-	Languages []string `json:"languages,omitempty" jsonschema:"Doctolib language codes (not ISO, see the tool description); Doctolib keeps practitioners who speak one of them"`
+	Languages []string `json:"languages,omitempty" jsonschema:"ISO 639 language codes (en, es, de...); the server turns them into Doctolib's codes, and Doctolib keeps practitioners who speak one of them"`
 	Page      int      `json:"page,omitempty"      jsonschema:"page number, from 0; 20 results a page"`
 	// The filters below passed a live check: Doctolib applied each one.
 	Telehealth          bool     `json:"telehealth,omitempty"            jsonschema:"only practitioners who offer video consultations"`
@@ -62,7 +62,7 @@ type Practitioner struct {
 	Lng               *float64           `json:"lng"`
 	DistanceKm        *float64           `json:"distance_km"`
 	InArea            bool               `json:"in_area"`
-	Languages         []Label            `json:"languages"`
+	Languages         []Language         `json:"languages"`
 	Sector            *Label             `json:"sector"`
 	Telehealth        *bool              `json:"telehealth"`
 	BookableOnline    bool               `json:"bookable_online"`
@@ -100,6 +100,11 @@ func (t *Tools) Search(ctx context.Context, in SearchInput) (*SearchOutput, erro
 	if err != nil {
 		return nil, fmt.Errorf("resolve place: %w", err)
 	}
+	codes, _, err := doctolibLanguages(in.Languages)
+	if err != nil {
+		return nil, err
+	}
+	in.Languages = codes
 	raw, err := t.doctolib.Post(ctx, searchPath, "page="+strconv.Itoa(in.Page), searchBody(in, plc, t.today()))
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
@@ -220,9 +225,9 @@ func organisePractitioner(raw json.RawMessage, ref place.Point, plc place.Place,
 
 	var codes []string
 	if o.take("languages", &codes) && codes != nil {
-		p.Languages = make([]Label, 0, len(codes))
+		p.Languages = make([]Language, 0, len(codes))
 		for _, c := range codes {
-			p.Languages = append(p.Languages, label(languageLabels(), c))
+			p.Languages = append(p.Languages, languageOf(c))
 		}
 	}
 	var sector *string

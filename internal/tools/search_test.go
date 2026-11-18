@@ -16,7 +16,7 @@ func TestSearchSendsTheFullPlaceAndFilters(t *testing.T) {
 
 	_, err := e.tools.Search(
 		t.Context(),
-		tools.SearchInput{Query: "dentiste", Place: "75001", Languages: []string{"gb", "es"}},
+		tools.SearchInput{Query: "dentiste", Place: "75001", Languages: []string{"en", "es"}},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -75,8 +75,10 @@ func TestSearchOrganisesResults(t *testing.T) {
 		"speciality": "Dentiste", "speciality_slug": "dentiste",
 		"address": "1 Rue de l'Exemple", "zipcode": "75001", "city": "Paris", "lat": 48.839, "lng": 2.34,
 		"distance_km": 1.0, "in_area": true,
-		"languages": [{"code": "gb", "label": null}, {"code": "fr", "label": null}, {"code": "zz", "label": null}],
-		"sector": {"code": "contracted", "label": null},
+		"languages": [{"code": "gb", "iso": "en", "name": "English", "label": "Anglais"},
+			{"code": "fr", "iso": "fr", "name": "French", "label": "Français"},
+			{"code": "zz", "iso": null, "name": null, "label": null}],
+		"sector": {"code": "contracted", "label": "Conventionné"},
 		"telehealth": true, "bookable_online": true, "allow_new_patients": true,
 		"payment_means": ["cash", "credit_card"], "minimum_fee": null,
 		"matched_motive": {"id": 3001, "name": "Première consultation"},
@@ -318,4 +320,26 @@ func TestSearchPassesTheVerifiedFilters(t *testing.T) {
 	// testNow is 17 November in Paris: 7 days ends at midnight on 24 November, Paris time, sent in UTC.
 	assertJSON(t, body.Filters, `{"telehealth": true, "regulationSector": ["CONTRACTED_2", "ORGANIZATION_CONTRACTED"],
 		"availabilitiesBefore": "2026-11-23T23:00:00.000Z"}`)
+}
+
+func TestSearchRefusesDoctolibOwnLanguageCodes(t *testing.T) {
+	t.Parallel()
+	// gb is Doctolib's code for English (ISO en); la is ISO for Latin but Doctolib's code for Lao (ISO lo).
+	for code, want := range map[string]string{"gb": `"en"`, "la": `"lo"`} {
+		t.Run(code, func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+			_, err := e.tools.Search(
+				t.Context(),
+				tools.SearchInput{Query: "dentiste", Place: "75001", Languages: []string{code}},
+			)
+			text := assertErrorPrefix(t, err, "error")
+			if !strings.Contains(text, want) {
+				t.Errorf("error %q does not point to %s", text, want)
+			}
+			if n := len(e.fake.doctolibRequests()); n != 0 {
+				t.Errorf("sent %d Doctolib requests", n)
+			}
+		})
+	}
 }

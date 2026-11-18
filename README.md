@@ -24,6 +24,17 @@ the distance in kilometres, whether a result is in the searched area, the slot s
 drops a field: every field Doctolib returns either goes, with its value unchanged, into the organised structure,
 or stays under its original name in the `other` object of the same level.
 
+### Languages and labels
+
+Agents pass languages as ISO 639 codes (`en`, `es`, `de`); the server turns them into Doctolib's own codes, which
+are partly country codes (`gb` for English, `dz` for Kabyle) and partly language codes (`hu`, `ta`).
+Its table holds the 71 codes Doctolib filters on, found by searching with every ISO 639-1 language code and ISO 3166
+country code. The French labels of 33 of them come from Doctolib itself, its filter panel or practitioners' public
+pages; the other 38 are inferred from codes whose meaning is plain. A code that is Doctolib's own spelling of another
+language is refused (`gb`; `la`, Latin in ISO, is Lao on Doctolib), and an ISO code missing from the table is sent as
+it is. Each language of a result carries Doctolib's code, the ISO code, the English name and the
+French label; regulation sectors carry the label of Doctolib's filter panel.
+
 ### What the server infers
 
 Some meanings come from other projects' notes or from observation and were not checked against Doctolib's

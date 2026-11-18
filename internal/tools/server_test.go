@@ -44,7 +44,7 @@ func TestToolsThroughTheSDK(t *testing.T) {
 		// other is where an "other" object must be in the structured result.
 		other func(map[string]any) any
 	}{
-		{"search_practitioners", map[string]any{"query": "dentiste", "place": "75001", "languages": []string{"gb"}},
+		{"search_practitioners", map[string]any{"query": "dentiste", "place": "75001", "languages": []string{"en"}},
 			func(m map[string]any) any { return m["results"].([]any)[0].(map[string]any)["other"] }},
 		{"practitioner_profile", map[string]any{"profile_url": e.base + "/dentiste/paris/ada-example"},
 			func(m map[string]any) any { return m["other"] }},
@@ -98,18 +98,17 @@ func TestAvailabilitySchemaRefusesMoreThanOnePage(t *testing.T) {
 	}
 }
 
-func TestSearchSchemaRefusesUnknownLanguageCodes(t *testing.T) {
+func TestSearchSchemaRefusesMalformedLanguageCodes(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	cs := connect(t, e)
 
-	// ISO's en is not Doctolib's code for English, gb is.
 	res, err := cs.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "search_practitioners",
-		Arguments: map[string]any{"query": "dentiste", "place": "75001", "languages": []string{"en"}},
+		Arguments: map[string]any{"query": "dentiste", "place": "75001", "languages": []string{"English"}},
 	})
 	if err == nil && !res.IsError {
-		t.Fatal("language en was accepted")
+		t.Fatal("language English was accepted")
 	}
 	if n := len(e.fake.doctolibRequests()); n != 0 {
 		t.Errorf("sent %d Doctolib requests", n)
