@@ -458,6 +458,31 @@ func TestSearchWarnsWhenNobodySpeaksTheLanguage(t *testing.T) {
 	assertJSON(t, out.FilterWarnings, `[]`)
 }
 
+func TestSearchSendsUnknownLanguageCodesOnce(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+
+	out, err := e.tools.Search(t.Context(), tools.SearchInput{
+		Query: "dentiste", Place: "75001", Languages: []string{"qq", "qq"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var body struct {
+		Filters struct {
+			Languages []string `json:"languages"`
+		} `json:"filters"`
+	}
+	err = json.Unmarshal(e.fake.doctolibRequests()[0].Body, &body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertJSON(t, body.Filters.Languages, `["qq"]`)
+	if w := strings.Join(out.FilterWarnings, "\n"); strings.Count(w, "qq") != 1 {
+		t.Errorf("warnings name qq more than once:\n%s", w)
+	}
+}
+
 func TestSearchLabelsUnknownSectorWithNull(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

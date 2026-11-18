@@ -168,22 +168,24 @@ func languageOf(code string) Language {
 // sending it would search for that other language.
 func doctolibLanguages(isos []string) ([]string, []string, error) {
 	var codes, unknown []string
+	table := languages()
 	for _, iso := range isos {
-		if i := slices.IndexFunc(languages(), func(l language) bool {
+		code := iso
+		if i := slices.IndexFunc(table, func(l language) bool {
 			return l.iso == iso || slices.Contains(strings.Fields(l.aliases), iso)
 		}); i >= 0 {
-			if !slices.Contains(codes, languages()[i].code) {
-				codes = append(codes, languages()[i].code)
-			}
-			continue
-		}
-		if i := slices.IndexFunc(languages(), func(l language) bool { return l.code == iso }); i >= 0 {
-			l := languages()[i]
+			code = table[i].code
+		} else if j := slices.IndexFunc(table, func(l language) bool { return l.code == iso }); j >= 0 {
+			l := table[j]
 			return nil, nil, fmt.Errorf("languages: the server knows no language with the ISO 639 code %q; "+
 				"Doctolib uses %q for %s (ISO %q), so it is not sent as it is", iso, iso, l.name, l.iso)
+		} else if !slices.Contains(unknown, iso) {
+			unknown = append(unknown, iso)
 		}
-		codes = append(codes, iso)
-		unknown = append(unknown, iso)
+		// Two ISO codes of one language, or one code twice, go out once.
+		if !slices.Contains(codes, code) {
+			codes = append(codes, code)
+		}
 	}
 	return codes, unknown, nil
 }
