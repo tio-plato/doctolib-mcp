@@ -166,8 +166,8 @@ const (
 	failure
 )
 
-// classify counts HTML as a block because Cloudflare challenges are HTML. Other
-// errors are not blocks, so an outage leaves no marker for a person to delete.
+// classify counts an HTML 2xx or 503 as a block because Cloudflare challenges are HTML. Other errors, 403 and
+// 429 aside, are not blocks, so an outage leaves no marker for a person to delete.
 func classify(status int, contentType string) outcome {
 	media, _, err := mime.ParseMediaType(contentType)
 	if err != nil {

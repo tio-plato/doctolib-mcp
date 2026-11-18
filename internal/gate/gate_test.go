@@ -103,6 +103,7 @@ func passedAt(t *testing.T, output string) time.Time {
 	return time.Time{}
 }
 
+// After the clock steps back an hour, the next request waits one interval, not an hour.
 func TestClockSteppingBackDoesNotStall(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
