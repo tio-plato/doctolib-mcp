@@ -304,8 +304,8 @@ func TestSearchPassesTheVerifiedFilters(t *testing.T) {
 	e := newEnv(t)
 
 	_, err := e.tools.Search(t.Context(), tools.SearchInput{
-		Query: "dermatologue", Place: "75001", Telehealth: true,
-		Sectors: []string{"contracted_2", "organization_contracted"}, AvailableWithinDays: 7,
+		Query: "dermatologue", Place: "75001", Telehealth: ptr(true),
+		Sectors: []string{"contracted_2", "organization_contracted"}, AvailableWithinDays: ptr(7),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -381,7 +381,7 @@ func TestSearchWarnsAboutFiltersDoctolibIgnored(t *testing.T) {
 	// In search.json, telehealth is true, false, null and false; languages are [gb fr zz], [fr], [fr] and [es];
 	// sectors are contracted, organization_contracted, null and contracted.
 	out, err := e.tools.Search(t.Context(), tools.SearchInput{
-		Query: "dentiste", Place: "75001", Telehealth: true, Languages: []string{"fr", "qq"},
+		Query: "dentiste", Place: "75001", Telehealth: ptr(true), Languages: []string{"fr", "qq"},
 		Sectors: []string{"contracted", "organization_contracted"},
 	})
 	if err != nil {

@@ -162,6 +162,10 @@ func writeHTML(w http.ResponseWriter, status int, body string) {
 	_, _ = io.WriteString(w, body)
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 // assertJSON compares got, once marshalled, with the JSON text want, ignoring formatting and key order.
 func assertJSON(t *testing.T, got any, want string) {
 	t.Helper()

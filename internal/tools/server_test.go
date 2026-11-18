@@ -131,6 +131,22 @@ func TestAvailabilitySchemaRefusesNullAgendas(t *testing.T) {
 	}
 }
 
+func TestSearchAcceptsNullForOptionalFilters(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	cs := connect(t, e)
+
+	res, err := cs.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "search_practitioners",
+		Arguments: map[string]any{
+			"query": "dentiste", "place": "75001", "telehealth": nil, "available_within_days": nil, "sectors": nil,
+		},
+	})
+	if err != nil || res.IsError {
+		t.Fatalf("null optional filters were refused: %v %+v", err, res)
+	}
+}
+
 func TestSearchAcceptsNullForOptionalLanguages(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

@@ -28,9 +28,9 @@ type SearchInput struct {
 	Languages []string `json:"languages,omitempty" jsonschema:"ISO 639 language codes (en, es, de...); the server turns them into Doctolib's codes, and Doctolib keeps practitioners who speak one of them"`
 	Page      int      `json:"page,omitempty"      jsonschema:"page number, from 0; 20 results a page"`
 	// The filters below passed a live check: Doctolib applied each one.
-	Telehealth          bool     `json:"telehealth,omitempty"            jsonschema:"only practitioners who offer video consultations"`
+	Telehealth          *bool    `json:"telehealth,omitempty"            jsonschema:"only practitioners who offer video consultations"`
 	Sectors             []string `json:"sectors,omitempty"               jsonschema:"regulation sectors to keep, as in the results' sector.code"`
-	AvailableWithinDays int      `json:"available_within_days,omitempty" jsonschema:"only practitioners with a free slot within this many days: 1 (today), 3, 7 or 14"`
+	AvailableWithinDays *int     `json:"available_within_days,omitempty" jsonschema:"only practitioners with a free slot within this many days: 1 (today), 3, 7 or 14"`
 }
 
 // SearchOutput is the result of search_practitioners.
@@ -155,7 +155,7 @@ func searchBody(in SearchInput, plc place.Place, today time.Time) searchRequest 
 	if len(in.Languages) > 0 {
 		filters["languages"] = in.Languages
 	}
-	if in.Telehealth {
+	if in.Telehealth != nil && *in.Telehealth {
 		filters["telehealth"] = true
 	}
 	if len(in.Sectors) > 0 {
@@ -165,9 +165,9 @@ func searchBody(in SearchInput, plc place.Place, today time.Time) searchRequest 
 		}
 		filters["regulationSector"] = upper
 	}
-	if in.AvailableWithinDays > 0 {
+	if in.AvailableWithinDays != nil && *in.AvailableWithinDays > 0 {
 		// As the web front end sends it: the end of the last day, Paris time, in UTC.
-		end := today.AddDate(0, 0, in.AvailableWithinDays)
+		end := today.AddDate(0, 0, *in.AvailableWithinDays)
 		filters["availabilitiesBefore"] = end.UTC().Format("2006-01-02T15:04:05.000Z")
 	}
 	return searchRequest{

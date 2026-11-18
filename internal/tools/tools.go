@@ -48,7 +48,8 @@ func NewServer(t *Tools, version string) (*mcp.Server, error) {
 	languages := searchIn.Properties["languages"]
 	languages.Items.Pattern = `^[a-z]{2,3}$`
 	searchIn.Properties["sectors"].Items.Enum = toAny(sectorCodes())
-	searchIn.Properties["available_within_days"].Enum = []any{1, 3, 7, 14}
+	// Null, like an absent value, means no such filter.
+	searchIn.Properties["available_within_days"].Enum = []any{nil, 1, 3, 7, 14}
 	searchOut, err := schemaFor[SearchOutput]()
 	if err != nil {
 		return nil, err

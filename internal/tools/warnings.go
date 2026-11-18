@@ -18,7 +18,7 @@ func filterWarnings(in SearchInput, unknown []string, results []Practitioner) []
 			"languages: the server does not know %s, sent to Doctolib as is; Doctolib may spell this language "+
 				"another way, so practitioners who speak it may be missing", strings.Join(unknown, ", ")))
 	}
-	if in.Telehealth {
+	if in.Telehealth != nil && *in.Telehealth {
 		warnings = appendCheck(warnings, results, "telehealth", "do not offer video consultations",
 			func(p Practitioner) (bool, bool) {
 				if p.Telehealth == nil {
