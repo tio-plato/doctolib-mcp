@@ -172,7 +172,9 @@ func doctolibLanguages(isos []string) ([]string, []string, error) {
 		if i := slices.IndexFunc(languages(), func(l language) bool {
 			return l.iso == iso || slices.Contains(strings.Fields(l.aliases), iso)
 		}); i >= 0 {
-			codes = append(codes, languages()[i].code)
+			if !slices.Contains(codes, languages()[i].code) {
+				codes = append(codes, languages()[i].code)
+			}
 			continue
 		}
 		if i := slices.IndexFunc(languages(), func(l language) bool { return l.code == iso }); i >= 0 {

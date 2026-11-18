@@ -350,9 +350,9 @@ func TestSearchTakesThreeLetterISOCodes(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 
-	// ISO 639-2/3 for Wolof, English and Norwegian Bokmål.
+	// Other ISO 639 codes of Wolof (wo), English (en) and Norwegian (no); en and eng name the same language.
 	out, err := e.tools.Search(t.Context(), tools.SearchInput{
-		Query: "dentiste", Place: "75001", Languages: []string{"wol", "eng", "nb"},
+		Query: "dentiste", Place: "75001", Languages: []string{"wol", "eng", "nob", "en"},
 	})
 	if err != nil {
 		t.Fatal(err)
