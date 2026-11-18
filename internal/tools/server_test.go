@@ -10,8 +10,7 @@ import (
 	"github.com/tio-plato/doctolib-mcp/internal/tools"
 )
 
-// connect serves the tools over the SDK's in-memory transport, so the SDK
-// validates the arguments and the results against the tools' schemas.
+// connect goes through the SDK, so it validates the arguments and results against the tools' schemas.
 func connect(t *testing.T, e *env) *mcp.ClientSession {
 	t.Helper()
 	server, err := tools.NewServer(e.tools, "test")

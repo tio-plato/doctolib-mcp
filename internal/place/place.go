@@ -1,6 +1,4 @@
-// Package place turns a French postcode or commune name into the area a
-// Doctolib search needs, using geo.api.gouv.fr: only the postcode or the name
-// leaves the machine.
+// Package place resolves a French postcode or commune name with geo.api.gouv.fr.
 package place
 
 import (
@@ -18,7 +16,6 @@ import (
 	"time"
 )
 
-// DefaultBaseURL is the French government's geographic API.
 const DefaultBaseURL = "https://geo.api.gouv.fr"
 
 const (
@@ -36,13 +33,11 @@ const (
 
 var postcodePattern = regexp.MustCompile(`^[0-9]{5}$`)
 
-// Point is a WGS84 position.
 type Point struct {
 	Lat float64 `json:"lat"`
 	Lng float64 `json:"lng"`
 }
 
-// BBox is a bounding box.
 type BBox struct {
 	South float64 `json:"south"`
 	West  float64 `json:"west"`
@@ -50,12 +45,10 @@ type BBox struct {
 	East  float64 `json:"east"`
 }
 
-// Centre is the middle of the box.
 func (b BBox) Centre() Point {
 	return Point{Lat: (b.South + b.North) * half, Lng: (b.West + b.East) * half}
 }
 
-// Place is a resolved arrondissement or commune.
 type Place struct {
 	Name      string   `json:"name"`
 	INSEE     string   `json:"insee"`
@@ -64,14 +57,12 @@ type Place struct {
 	Centre    Point    `json:"centre"`
 }
 
-// Candidate is a commune the input may have meant.
 type Candidate struct {
 	Name      string
 	INSEE     string
 	Postcodes []string
 }
 
-// Error reports a postcode or name that names no single place.
 type Error struct {
 	Input      string
 	Reason     string
@@ -91,13 +82,11 @@ func (e *Error) Error() string {
 	return b.String()
 }
 
-// Resolver queries geo.api.gouv.fr.
 type Resolver struct {
 	baseURL string
 	http    *http.Client
 }
 
-// NewResolver returns a resolver for the API at baseURL.
 func NewResolver(baseURL string) *Resolver {
 	return &Resolver{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
@@ -105,12 +94,9 @@ func NewResolver(baseURL string) *Resolver {
 	}
 }
 
-// Resolve turns a 5-digit postcode or a commune name into a place.
-//
-// A postcode resolves to its arrondissement in Paris, Lyon and Marseille, else
-// to the first commune that has it. A name resolves only to a commune whose
-// name is the same, ignoring case, accents and hyphens; several such communes
-// make an [Error] that lists their postcodes.
+// Resolve maps a postcode to its arrondissement in Paris, Lyon and Marseille, else to its first commune. A name
+// must match a commune's exactly, ignoring case, accents and hyphens; several matches make an [Error] listing
+// their postcodes.
 func (r *Resolver) Resolve(ctx context.Context, input string) (Place, error) {
 	input = strings.TrimSpace(input)
 	if postcodePattern.MatchString(input) {
@@ -119,7 +105,7 @@ func (r *Resolver) Resolve(ctx context.Context, input string) (Place, error) {
 	return r.byName(ctx, input)
 }
 
-// Distance is the great-circle distance in kilometres (haversine, Earth radius 6371 km).
+// Distance is the haversine distance in kilometres.
 func Distance(a, b Point) float64 {
 	halfLat := math.Sin((b.Lat - a.Lat) * degToRad * half)
 	halfLng := math.Sin((b.Lng - a.Lng) * degToRad * half)
@@ -127,12 +113,10 @@ func Distance(a, b Point) float64 {
 	return 2 * earthRadiusKm * math.Asin(math.Sqrt(h))
 }
 
-// Slug is name in lower case, without accents, with every run of other characters turned into one hyphen.
 func Slug(name string) string {
 	return strings.ReplaceAll(fold(name), " ", "-")
 }
 
-// fold lowercases s, removes accents and turns every run of non-alphanumeric characters into one space.
 func fold(s string) string {
 	var b strings.Builder
 	space := false
@@ -150,7 +134,6 @@ func fold(s string) string {
 	return b.String()
 }
 
-// unaccent maps a lowercase letter or digit to its unaccented spelling; ok is false for anything else.
 func unaccent(r rune) (string, bool) {
 	switch {
 	case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
@@ -180,7 +163,6 @@ func unaccent(r rune) (string, bool) {
 	}
 }
 
-// commune is one geo.api.gouv.fr result.
 type commune struct {
 	Nom          string   `json:"nom"`
 	Code         string   `json:"code"`

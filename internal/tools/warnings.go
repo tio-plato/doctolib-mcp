@@ -6,11 +6,7 @@ import (
 	"strings"
 )
 
-// filterWarnings names the requested filters that the results show Doctolib
-// may not have applied: Doctolib silently ignores a filter a speciality does
-// not offer, such as video consultations for dentists. A result whose field is
-// null is counted apart, as one that cannot be checked. A free slot within N
-// days cannot be checked from the results at all.
+// filterWarnings counts a result whose field is null apart, as one that can't be checked.
 func filterWarnings(in SearchInput, unknown []string, total *int, results []Practitioner) []string {
 	warnings := []string{}
 	if len(unknown) > 0 {
@@ -36,8 +32,8 @@ func filterWarnings(in SearchInput, unknown []string, total *int, results []Prac
 				return slices.Contains(in.Sectors, p.Sector.Code), true
 			})
 	}
-	// A total of 0 means nobody matched, whatever the page; without a total only
-	// an empty first page does, since a later one may just be past the end.
+	// A total of 0 means nobody matched, on any page; without a total only an empty page 0 does, since a later
+	// one may just be past the end.
 	nobody := total != nil && *total == 0 || total == nil && in.Page == 0 && len(results) == 0
 	if len(in.Languages) > 0 && nobody {
 		warnings = append(warnings, "languages: no result, so either no practitioner here who meets the other "+
@@ -57,7 +53,6 @@ func filterWarnings(in SearchInput, unknown []string, total *int, results []Prac
 	return warnings
 }
 
-// appendCheck adds a warning when a result that can be checked does not match.
 func appendCheck(
 	warnings []string, results []Practitioner, filter, mismatch string, matches func(Practitioner) (bool, bool),
 ) []string {

@@ -35,7 +35,6 @@ func testNow() time.Time {
 	return time.Date(2026, 11, 16, 23, 30, 0, 0, time.UTC)
 }
 
-// request is what the fake server received.
 type request struct {
 	Method   string
 	Path     string
@@ -66,14 +65,12 @@ func (f *fake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h(w, r)
 }
 
-// handle sets how the fake answers path.
 func (f *fake) handle(path string, h http.HandlerFunc) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.handlers[path] = h
 }
 
-// doctolibRequests are the requests that went to Doctolib, not to the geocoder.
 func (f *fake) doctolibRequests() []request {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -93,9 +90,6 @@ type env struct {
 	base  string
 }
 
-// newEnv starts the fake with normal answers: the 75001 arrondissement, the
-// search, the profile and an availability with slots. The gate has no
-// interval; configure may change its caps.
 func newEnv(t *testing.T, configure ...func(*gate.Config)) *env {
 	t.Helper()
 	f := &fake{handlers: map[string]http.HandlerFunc{}}
@@ -166,7 +160,6 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-// assertJSON compares got, once marshalled, with the JSON text want, ignoring formatting and key order.
 func assertJSON(t *testing.T, got any, want string) {
 	t.Helper()
 	data, err := json.Marshal(got)
@@ -187,7 +180,6 @@ func assertJSON(t *testing.T, got any, want string) {
 	}
 }
 
-// assertErrorPrefix checks that err is a tool error of the given category.
 func assertErrorPrefix(t *testing.T, err error, category string) string {
 	t.Helper()
 	if err == nil {

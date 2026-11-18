@@ -1,8 +1,5 @@
-// Package gate rations the requests sent to Doctolib.
-//
-// Every server process of the user shares one state directory, guarded by a
-// file lock: one machine has one public IP address, so it gets one request
-// log, one spacing and one block marker, however many MCP clients run.
+// Package gate spaces and caps the requests to Doctolib. Every server process of the user shares one state
+// directory and file lock, since they all go out through the same IP address.
 package gate
 
 import (
@@ -17,8 +14,7 @@ import (
 	"time"
 )
 
-// Defaults sized on heavy manual use of the Doctolib website: one results page
-// fires about 20 slot requests, 30 pages an hour make 600.
+// Sized on heavy manual use: about 30 result pages an hour, each firing about 20 slot requests.
 const (
 	DefaultInterval = time.Second
 	DefaultHourly   = 600
@@ -32,22 +28,16 @@ const (
 	day        = 24 * time.Hour
 )
 
-// Config sets up a [Gate].
 type Config struct {
-	// Dir is the state directory shared by every server process.
-	Dir string
-	// Interval is the minimum time between two requests.
+	Dir      string
 	Interval time.Duration
-	// Hourly and Daily cap the requests over the last hour and the last 24 hours.
+	// Hourly and Daily cap the requests over the last hour and the last 24 hours, both rolling.
 	Hourly int
 	Daily  int
-	// Now is the clock; nil means [time.Now].
-	Now func() time.Time
-	// Sleep waits out the interval; nil means a timer.
-	Sleep func(ctx context.Context, d time.Duration) error
+	Now    func() time.Time
+	Sleep  func(ctx context.Context, d time.Duration) error
 }
 
-// Gate lets a request through once the block marker, the caps and the spacing allow it.
 type Gate struct {
 	dir      string
 	interval time.Duration
@@ -57,7 +47,6 @@ type Gate struct {
 	sleep    func(ctx context.Context, d time.Duration) error
 }
 
-// New returns a gate over the state directory c.Dir.
 func New(c Config) *Gate {
 	g := &Gate{dir: c.Dir, interval: c.Interval, hourly: c.Hourly, daily: c.Daily, now: c.Now, sleep: c.Sleep}
 	if g.now == nil {
@@ -69,7 +58,6 @@ func New(c Config) *Gate {
 	return g
 }
 
-// DefaultDir is $XDG_STATE_HOME/doctolib-mcp, or ~/.local/state/doctolib-mcp when it is unset.
 func DefaultDir() (string, error) {
 	if base := os.Getenv("XDG_STATE_HOME"); base != "" {
 		return filepath.Join(base, "doctolib-mcp"), nil
@@ -81,7 +69,6 @@ func DefaultDir() (string, error) {
 	return filepath.Join(home, ".local", "state", "doctolib-mcp"), nil
 }
 
-// Marker records the response Doctolib blocked.
 type Marker struct {
 	Time   time.Time `json:"time"`
 	Path   string    `json:"path"`
@@ -89,12 +76,10 @@ type Marker struct {
 	Text   string    `json:"text"`
 }
 
-// BlockedError reports a block, either the response just received or a marker left by an earlier one.
 type BlockedError struct {
 	Marker     Marker
 	MarkerPath string
-	// WriteErr is set when the marker could not be written.
-	WriteErr error
+	WriteErr   error
 }
 
 func (e *BlockedError) Error() string {
@@ -106,12 +91,9 @@ func (e *BlockedError) Error() string {
 	return msg
 }
 
-// BudgetError reports that a cap is reached.
 type BudgetError struct {
-	// Window is "hour" or "day".
 	Window string
 	Limit  int
-	// Resume is when the next request will be let through.
 	Resume time.Time
 }
 
@@ -120,17 +102,12 @@ func (e *BudgetError) Error() string {
 		e.Limit, e.Window, e.Resume.Format(time.RFC3339))
 }
 
-// MarkerPath is the block marker file; only a person deletes it.
 func (g *Gate) MarkerPath() string {
 	return filepath.Join(g.dir, markerFile)
 }
 
-// Acquire returns once a request may be sent and records it as sent.
-//
-// It refuses while the block marker exists or a cap is reached, and otherwise
-// waits until the interval since the last request has passed. It waits
-// holding the lock, so the process already waiting goes first, and checks the
-// marker again on waking, so a block written meanwhile stops it.
+// Acquire waits out the interval holding the lock, so the first to wait goes first, and checks the marker
+// again on waking.
 func (g *Gate) Acquire(ctx context.Context) error {
 	unlock, err := g.lock()
 	if err != nil {
@@ -161,9 +138,8 @@ func (g *Gate) Acquire(ctx context.Context) error {
 	return g.writeLog(append(sent, now))
 }
 
-// waitAfter waits until the interval after the last request has passed, and
-// returns the time to record. It waits at most one interval and records no
-// time before last, even after the clock steps back, so the log stays in order.
+// waitAfter waits at most one interval and returns no time before last, so a clock stepping back neither
+// stalls the gate nor puts the log out of order.
 func (g *Gate) waitAfter(ctx context.Context, last, now time.Time) (time.Time, error) {
 	if wait := min(last.Add(g.interval).Sub(now), g.interval); wait > 0 {
 		err := g.sleep(ctx, wait)
@@ -182,12 +158,8 @@ func (g *Gate) waitAfter(ctx context.Context, last, now time.Time) (time.Time, e
 	return now, nil
 }
 
-// Block writes the block marker for the response to path, stamped with the
-// gate's clock, and returns it. From then on every Acquire refuses until a
-// person deletes it.
-//
-// It takes no lock: a process waiting out the interval holds it, and must find
-// the marker when it wakes. Replacing the file by a rename keeps the write whole.
+// Block takes no lock: a process sleeping out the interval holds it and must
+// see the marker when it wakes.
 func (g *Gate) Block(path string, status int, text string) (Marker, error) {
 	m := Marker{Time: g.now(), Path: path, Status: status, Text: text}
 	err := os.MkdirAll(g.dir, 0o700)
@@ -215,7 +187,6 @@ func (g *Gate) checkCaps(sent []time.Time, now time.Time) error {
 	return nil
 }
 
-// lock takes the exclusive lock on the state directory, creating the directory if needed.
 func (g *Gate) lock() (func(), error) {
 	err := os.MkdirAll(g.dir, 0o700)
 	if err != nil {
@@ -237,7 +208,6 @@ func (g *Gate) lock() (func(), error) {
 	}, nil
 }
 
-// checkMarker returns a [BlockedError] while the block marker exists.
 func (g *Gate) checkMarker() error {
 	marker, blocked, err := g.readMarker()
 	if err != nil {
@@ -249,7 +219,6 @@ func (g *Gate) checkMarker() error {
 	return nil
 }
 
-// readMarker reports whether the block marker exists, and what it holds.
 func (g *Gate) readMarker() (Marker, bool, error) {
 	var m Marker
 	data, err := os.ReadFile(g.MarkerPath())
@@ -290,7 +259,7 @@ func (g *Gate) writeLog(sent []time.Time) error {
 	return writeFile(filepath.Join(g.dir, logFile), data)
 }
 
-// since returns the times after from; sent is in ascending order.
+// since needs sent in ascending order.
 func since(sent []time.Time, from time.Time) []time.Time {
 	for i, t := range sent {
 		if t.After(from) {
@@ -300,8 +269,7 @@ func since(sent []time.Time, from time.Time) []time.Time {
 	return nil
 }
 
-// writeFile replaces path atomically, so a crash never leaves half a file:
-// the data reaches the disk before the rename makes it the file.
+// writeFile replaces path atomically.
 func writeFile(path string, data []byte) error {
 	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*")
 	if err != nil {
@@ -322,8 +290,7 @@ func writeFile(path string, data []byte) error {
 	if err != nil {
 		return fmt.Errorf("replace %s: %w", path, err)
 	}
-	// The rename reaches the disk with the directory. Best effort: some
-	// systems cannot sync a directory, and the file itself is already synced.
+	// Syncing the directory is best effort: some systems can't.
 	if dir, openErr := os.Open(filepath.Dir(path)); openErr == nil {
 		_ = dir.Sync()
 		_ = dir.Close()

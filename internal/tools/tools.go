@@ -1,5 +1,4 @@
-// Package tools holds the three read-only MCP tools and organises Doctolib's
-// responses for the calling agent.
+// Package tools serves the MCP tools and organises Doctolib's responses.
 package tools
 
 import (
@@ -19,7 +18,6 @@ import (
 	"github.com/tio-plato/doctolib-mcp/internal/place"
 )
 
-// Tools runs the tools against Doctolib and geo.api.gouv.fr.
 type Tools struct {
 	doctolib *doctolib.Client
 	places   *place.Resolver
@@ -27,7 +25,6 @@ type Tools struct {
 	paris    *time.Location
 }
 
-// New returns the tools; now is the clock that sets "today" in Europe/Paris.
 func New(client *doctolib.Client, places *place.Resolver, now func() time.Time) (*Tools, error) {
 	paris, err := time.LoadLocation("Europe/Paris")
 	if err != nil {
@@ -36,7 +33,6 @@ func New(client *doctolib.Client, places *place.Resolver, now func() time.Time) 
 	return &Tools{doctolib: client, places: places, now: now, paris: paris}, nil
 }
 
-// NewServer returns an MCP server named doctolib with the three tools.
 func NewServer(t *Tools, version string) (*mcp.Server, error) {
 	server := mcp.NewServer(&mcp.Implementation{Name: "doctolib", Title: "Doctolib (France)", Version: version}, nil)
 
@@ -88,9 +84,8 @@ func NewServer(t *Tools, version string) (*mcp.Server, error) {
 	return server, nil
 }
 
-// schemaFor infers the schema of T. [json.RawMessage] holds Doctolib's values
-// as they are, so it accepts any value instead of the byte array it would be
-// inferred as.
+// schemaFor maps [json.RawMessage] to the empty schema: inferred as a byte array, it would fail Doctolib's values
+// in output validation.
 func schemaFor[T any]() (*jsonschema.Schema, error) {
 	s, err := jsonschema.For[T](&jsonschema.ForOptions{
 		IgnoreInvalidTypes: false,
@@ -112,8 +107,6 @@ func tool(name, description string, in, out *jsonschema.Schema) *mcp.Tool {
 	}
 }
 
-// handler adapts a tool function to the SDK; an error becomes a tool error
-// whose text starts with its category.
 func handler[In, Out any](f func(context.Context, In) (*Out, error)) mcp.ToolHandlerFor[In, *Out] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in In) (*mcp.CallToolResult, *Out, error) {
 		out, err := f(ctx, in)
@@ -124,7 +117,6 @@ func handler[In, Out any](f func(context.Context, In) (*Out, error)) mcp.ToolHan
 	}
 }
 
-// ErrorText is the text of a tool error: it starts with the category, blocked, budget, place or error, and says what to do.
 func ErrorText(err error) string {
 	var (
 		blocked *gate.BlockedError

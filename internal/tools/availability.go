@@ -23,7 +23,6 @@ const (
 	dateLayout = "2006-01-02"
 )
 
-// Slot statuses, from the first rule that matches.
 const (
 	StatusHasSlots      = "has_slots"
 	StatusNotOpened     = "not_opened"
@@ -32,25 +31,21 @@ const (
 	StatusError         = "error"
 )
 
-// AvailabilityInput is the input of availability.
 type AvailabilityInput struct {
 	Queries   []AvailabilityQuery `json:"queries"              jsonschema:"1 to 20 availability_query objects, as search_practitioners or practitioner_profile give them"`
 	StartDate string              `json:"start_date,omitempty" jsonschema:"first day of the 15-day window, YYYY-MM-DD; default today in Europe/Paris"`
 }
 
-// AvailabilityOutput is the result of availability.
 type AvailabilityOutput struct {
 	Window  Window               `json:"window"`
 	Results []AvailabilityResult `json:"results"`
 }
 
-// Window is the 15 days asked for, both ends included.
 type Window struct {
 	Start string `json:"start"`
 	End   string `json:"end"`
 }
 
-// AvailabilityResult is the outcome for one query; a failed query has only query, status "error" and error.
 type AvailabilityResult struct {
 	Query     AvailabilityQuery `json:"query"`
 	Status    string            `json:"status"`
@@ -62,8 +57,6 @@ type AvailabilityResult struct {
 	Error     string            `json:"error,omitempty"`
 }
 
-// Earliest is the first free slot: in the window, else Doctolib's next_slot.
-// Time is null when Doctolib gives only a date.
 type Earliest struct {
 	Date   string  `json:"date"`
 	Time   *string `json:"time"`
@@ -71,13 +64,12 @@ type Earliest struct {
 	Source string  `json:"source"`
 }
 
-// Day lists the free times of one day, in order.
 type Day struct {
 	Date  string   `json:"date"`
 	Times []string `json:"times"`
 }
 
-// partialError stops a batch and carries the results fetched before it.
+// partialError carries the results fetched before a block or a reached cap.
 type partialError struct {
 	err  error
 	done *AvailabilityOutput
@@ -87,10 +79,6 @@ func (e *partialError) Error() string { return e.err.Error() }
 
 func (e *partialError) Unwrap() error { return e.err }
 
-// Availability runs availability: one Doctolib request per query, in turn, at the gate's pace.
-//
-// A failed query is reported in its own result. A block or a reached cap stops
-// the batch: the error then carries the results fetched so far.
 func (t *Tools) Availability(ctx context.Context, in AvailabilityInput) (*AvailabilityOutput, error) {
 	if len(in.Queries) == 0 || len(in.Queries) > MaxQueries {
 		return nil, fmt.Errorf(
@@ -126,7 +114,6 @@ func (t *Tools) Availability(ctx context.Context, in AvailabilityInput) (*Availa
 	return out, nil
 }
 
-// today is the start of the current day in Paris.
 func (t *Tools) today() time.Time {
 	now := t.now().In(t.paris)
 	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, t.paris)
@@ -143,7 +130,7 @@ func (t *Tools) startDate(s string) (time.Time, error) {
 	return d, nil
 }
 
-// availabilityParams are the five parameters, in the order, of the request the web front end sends.
+// availabilityParams matches the website's request: same parameters, same order.
 func availabilityParams(start string, q AvailabilityQuery) string {
 	agendas := make([]string, 0, len(q.AgendaIDs))
 	for _, a := range q.AgendaIDs {
@@ -221,8 +208,7 @@ func organiseAvailability(raw []byte, q AvailabilityQuery) AvailabilityResult {
 		r.Status = StatusNoneVisible
 	}
 
-	// next_slot is after the window: it is the earliest only when the window
-	// has no slot at all, not when its slots are in a shape the server does not know.
+	// next_slot is the earliest only when the window has no slot at all, not when its slots have an unknown shape.
 	switch {
 	case first != nil:
 		r.Earliest = earliest(*first, "window")
@@ -255,13 +241,13 @@ func parseSlot(raw json.RawMessage) (slot, bool) {
 	return slot{at: at, iso: iso}, true
 }
 
-// earliest keeps the local date and time the ISO time is written in (Paris time from Doctolib).
+// earliest keeps the offset the ISO time is written in, Paris time from Doctolib.
 func earliest(s slot, source string) *Earliest {
 	hm := s.at.Format("15:04")
 	return &Earliest{Date: s.at.Format(dateLayout), Time: &hm, ISO: s.iso, Source: source}
 }
 
-// nextSlot reads Doctolib's next_slot, a full ISO time or a bare date; nil for anything else.
+// nextSlot accepts a full ISO time or a bare date.
 func nextSlot(raw string) *Earliest {
 	if at, err := time.Parse(time.RFC3339, raw); err == nil {
 		return earliest(slot{at: at, iso: raw}, "next_slot")

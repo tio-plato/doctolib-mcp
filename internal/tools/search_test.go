@@ -156,7 +156,6 @@ func TestSearchDistanceFromBoxCentreWithoutSearchedLocation(t *testing.T) {
 	}
 }
 
-// commune is a geo.api.gouv.fr result with a small box around (lat, lng).
 func commune(name, code string, lat, lng float64, postcodes ...string) string {
 	pc, _ := json.Marshal(postcodes)
 	return fmt.Sprintf(
@@ -252,7 +251,6 @@ func TestSearchRejectsUnclearPlaces(t *testing.T) {
 	}
 }
 
-// geoHandler answers geo.api.gouv.fr queries by their codePostal and type, or nom.
 func geoHandler(answers map[string]string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()

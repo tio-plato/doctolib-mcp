@@ -1,8 +1,4 @@
-// Package doctolib sends the anonymous requests to Doctolib's web JSON endpoints.
-//
-// Every request goes through the usage gate, carries the same browser headers,
-// is sent once (no retry, no cookie, no redirect) and is classified as a
-// success, a block or another error.
+// Package doctolib sends requests to the JSON endpoints behind Doctolib's website.
 package doctolib
 
 import (
@@ -23,15 +19,11 @@ import (
 	"github.com/tio-plato/doctolib-mcp/internal/gate"
 )
 
-// DefaultBaseURL is the French Doctolib site.
 const DefaultBaseURL = "https://www.doctolib.fr"
 
-// ChromeMajorEnv overrides the Chrome major version in the User-Agent.
 const ChromeMajorEnv = "DOCTOLIB_MCP_CHROME_MAJOR"
 
-// defaultChromeMajor is the Chrome major version in the User-Agent.
-// Nix builds replace it with nixpkgs' chromium version through -ldflags -X.
-var defaultChromeMajor = "157" //nolint:gochecknoglobals // set at link time with -ldflags -X
+var defaultChromeMajor = "157" //nolint:gochecknoglobals // flake.nix sets nixpkgs' chromium version with -ldflags -X
 
 const (
 	requestTimeout = 30 * time.Second
@@ -39,7 +31,6 @@ const (
 	markerTextLen  = 300
 )
 
-// ChromeMajor returns the Chrome major version for the User-Agent: $DOCTOLIB_MCP_CHROME_MAJOR if set, else the default.
 func ChromeMajor() (string, error) {
 	v := os.Getenv(ChromeMajorEnv)
 	if v == "" {
@@ -51,17 +42,13 @@ func ChromeMajor() (string, error) {
 	return v, nil
 }
 
-// Config sets up a [Client].
 type Config struct {
-	// BaseURL is the site root, without a trailing slash.
 	BaseURL     string
 	ChromeMajor string
 	Gate        *gate.Gate
-	// Timeout bounds each request; zero means 30 seconds.
-	Timeout time.Duration
+	Timeout     time.Duration
 }
 
-// Client sends requests to Doctolib.
 type Client struct {
 	baseURL   string
 	userAgent string
@@ -69,7 +56,6 @@ type Client struct {
 	http      *http.Client
 }
 
-// New returns a client for c.BaseURL.
 func New(c Config) *Client {
 	timeout := c.Timeout
 	if timeout == 0 {
@@ -82,23 +68,20 @@ func New(c Config) *Client {
 		gate: c.Gate,
 		http: &http.Client{
 			Timeout: timeout,
-			// A redirect is reported as an error, never followed.
+			// Never follow a redirect: classify reports the 3xx as an error.
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 		},
 	}
 }
 
-// BaseURL is the site root the client talks to.
 func (c *Client) BaseURL() string {
 	return c.baseURL
 }
 
-// Gate is the usage gate every request goes through.
 func (c *Client) Gate() *gate.Gate {
 	return c.gate
 }
 
-// StatusError reports a response that is neither a success nor a block.
 type StatusError struct {
 	Path        string
 	Status      int
@@ -109,12 +92,11 @@ func (e *StatusError) Error() string {
 	return fmt.Sprintf("Doctolib answered HTTP %d (%s) on %s", e.Status, e.ContentType, e.Path)
 }
 
-// Get sends a GET request; rawQuery is already encoded and keeps its order.
+// Get sends rawQuery unchanged, so the parameters keep their order.
 func (c *Client) Get(ctx context.Context, path, rawQuery string) ([]byte, error) {
 	return c.do(ctx, http.MethodGet, path, rawQuery, nil)
 }
 
-// Post sends body as JSON in a POST request; rawQuery is already encoded.
 func (c *Client) Post(ctx context.Context, path, rawQuery string, body any) ([]byte, error) {
 	data, err := json.Marshal(body)
 	if err != nil {
@@ -164,7 +146,7 @@ func (c *Client) do(ctx context.Context, method, path, rawQuery string, body []b
 	return nil, &StatusError{Path: path, Status: resp.StatusCode, ContentType: contentType}
 }
 
-// setHeaders gives every request, whatever its endpoint or method, the headers of the Doctolib web front end.
+// setHeaders gives every request the headers Doctolib's website sends from Chrome.
 func (c *Client) setHeaders(req *http.Request) {
 	req.Header.Set("User-Agent", c.userAgent)
 	req.Header.Set("Accept", "application/json")
@@ -184,13 +166,8 @@ const (
 	failure
 )
 
-// classify sorts a response; the first rule that matches wins.
-//
-//  1. 403 and 429 are blocks, whatever the body.
-//  2. HTML with a 2xx or a 503 is a block: Cloudflare challenges are HTML.
-//  3. JSON with a 2xx (206 included) is a success.
-//  4. Anything else is an error, not a block: a stale link or an outage
-//     must not leave a marker only a person can clear.
+// classify counts HTML as a block because Cloudflare challenges are HTML. Other
+// errors are not blocks, so an outage leaves no marker for a person to delete.
 func classify(status int, contentType string) outcome {
 	media, _, err := mime.ParseMediaType(contentType)
 	if err != nil {
@@ -216,7 +193,7 @@ var (
 	htmlTag    = regexp.MustCompile(`(?s)<[^>]*>`)
 )
 
-// visibleText is the start of what a person sees on the response page; for a block page it holds the support code.
+// visibleText is the start of the page's visible text, where a block page shows its support code.
 func visibleText(body []byte, contentType string) string {
 	text := string(body)
 	if strings.Contains(contentType, "html") || strings.HasPrefix(strings.TrimSpace(text), "<") {

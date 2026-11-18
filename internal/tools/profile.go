@@ -14,12 +14,10 @@ import (
 
 const profilePath = "/online_booking/api/slot_selection_funnel/v1/info.json"
 
-// ProfileInput is the input of practitioner_profile.
 type ProfileInput struct {
 	ProfileURL string `json:"profile_url" jsonschema:"profile_url of a search_practitioners result"`
 }
 
-// ProfileOutput is the result of practitioner_profile.
 type ProfileOutput struct {
 	Name               *string               `json:"name"`
 	Speciality         *string               `json:"speciality"`
@@ -32,7 +30,6 @@ type ProfileOutput struct {
 	Other              map[string]any        `json:"other"`
 }
 
-// ProfilePlace is one practice of the profile.
 type ProfilePlace struct {
 	PracticeID *int64         `json:"practice_id"`
 	Name       *string        `json:"name"`
@@ -45,36 +42,30 @@ type ProfilePlace struct {
 	Other      map[string]any `json:"other"`
 }
 
-// ProfilePractitioner is one practitioner of the profile; an organisation often has several.
 type ProfilePractitioner struct {
 	ID    *int64         `json:"id"`
 	Name  *string        `json:"name"`
 	Other map[string]any `json:"other"`
 }
 
-// Motive is one visit motive and where it is offered.
 type Motive struct {
-	ID         *int64  `json:"id"`
-	Name       *string `json:"name"`
-	Telehealth *bool   `json:"telehealth"`
-	Category   *string `json:"category"`
-	// NewPatientRestrictions is Doctolib's value as it is.
+	ID                     *int64          `json:"id"`
+	Name                   *string         `json:"name"`
+	Telehealth             *bool           `json:"telehealth"`
+	Category               *string         `json:"category"`
 	NewPatientRestrictions json.RawMessage `json:"new_patient_restrictions"`
 	Offered                []Offer         `json:"offered"`
 	Other                  map[string]any  `json:"other"`
 }
 
-// Offer is one (practice, agenda) that offers a visit motive.
 type Offer struct {
-	PracticeID   int64   `json:"practice_id"`
-	Practitioner *string `json:"practitioner"`
-	AgendaID     int64   `json:"agenda_id"`
-	// NewPatientRestrictions holds the motive's restriction entries that name this agenda, copied as they are.
+	PracticeID             int64             `json:"practice_id"`
+	Practitioner           *string           `json:"practitioner"`
+	AgendaID               int64             `json:"agenda_id"`
 	NewPatientRestrictions []json.RawMessage `json:"new_patient_restrictions"`
 	AvailabilityQuery      AvailabilityQuery `json:"availability_query"`
 }
 
-// UnavailableAgenda is an agenda whose booking is temporarily disabled.
 type UnavailableAgenda struct {
 	AgendaID     int64   `json:"agenda_id"`
 	PracticeID   *int64  `json:"practice_id"`
@@ -83,7 +74,6 @@ type UnavailableAgenda struct {
 
 var errNoSlug = errors.New("no profile slug in the URL path")
 
-// Profile runs practitioner_profile: one Doctolib request.
 func (t *Tools) Profile(ctx context.Context, in ProfileInput) (*ProfileOutput, error) {
 	slug, err := profileSlug(in.ProfileURL)
 	if err != nil {
@@ -96,7 +86,6 @@ func (t *Tools) Profile(ctx context.Context, in ProfileInput) (*ProfileOutput, e
 	return organiseProfile(raw, in.ProfileURL)
 }
 
-// profileSlug is the last segment of the URL path, without the query.
 func profileSlug(profileURL string) (string, error) {
 	u, err := url.Parse(strings.TrimSpace(profileURL))
 	if err != nil {
@@ -127,7 +116,7 @@ func organiseProfile(raw []byte, profileURL string) (*ProfileOutput, error) {
 	data := top
 	if d := parseObject(top.fields["data"]); d != nil {
 		data = d
-		// An empty wrapper stays in other as it is.
+		// An empty wrapper stays in other.
 		if len(d.fields) > 0 {
 			top.drop("data")
 		}
@@ -155,7 +144,7 @@ func organiseProfile(raw []byte, profileURL string) (*ProfileOutput, error) {
 			out.Practitioners = append(out.Practitioners, organiseProfilePractitioner(p))
 		}
 	}
-	// Agendas and categories are read to organise the motives; they stay whole in other.
+	// Agendas and categories are only peeked: they stay whole in other.
 	ctx := motiveContext{agendas: nil, names: practitionerNames(out.Practitioners), categories: categoryNames(data)}
 	data.peek("agendas", &ctx.agendas)
 	if data.take("visit_motives", &motives) {
@@ -177,9 +166,7 @@ func organiseProfile(raw []byte, profileURL string) (*ProfileOutput, error) {
 	return out, nil
 }
 
-// unwrap puts what is left of the data wrapper next to what is left inside
-// it. When both levels have a field of the same name, it keeps Doctolib's
-// nesting instead, so neither is lost.
+// unwrap keeps Doctolib's nesting when both levels have a field of the same name, so neither is lost.
 func unwrap(inner, wrapper map[string]any) map[string]any {
 	for k := range wrapper {
 		if _, clash := inner[k]; clash {
@@ -191,14 +178,12 @@ func unwrap(inner, wrapper map[string]any) map[string]any {
 	return inner
 }
 
-// motiveContext is what organising a motive needs from the rest of the profile.
 type motiveContext struct {
 	agendas    []agenda
 	names      map[int64]*string
 	categories map[int64]string
 }
 
-// practitioner is the name of the agenda's practitioner, or nil.
 func (c motiveContext) practitioner(a agenda) *string {
 	if a.PractitionerID == nil {
 		return nil
@@ -309,7 +294,6 @@ func organiseMotive(raw json.RawMessage, ctx motiveContext) Motive {
 	return m
 }
 
-// practicesOffering lists, in ascending order, the practices where the agenda offers the motive.
 func practicesOffering(a agenda, motive int64) []int64 {
 	var out []int64
 	for key, motives := range a.MotivesByPractice {
@@ -322,7 +306,6 @@ func practicesOffering(a agenda, motive int64) []int64 {
 	return out
 }
 
-// restrictionsNaming returns the entries whose agenda_ids name the agenda, as they are.
 func restrictionsNaming(restrictions []json.RawMessage, agendaID int64) []json.RawMessage {
 	out := []json.RawMessage{}
 	for _, r := range restrictions {

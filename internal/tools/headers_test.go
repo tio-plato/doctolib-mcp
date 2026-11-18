@@ -40,7 +40,6 @@ func TestEveryEndpointGetsTheSameBrowserHeaders(t *testing.T) {
 	}
 }
 
-// checkPostHeaders checks that a POST, and only a POST, carries Origin and a JSON Content-Type, as browsers send them.
 func checkPostHeaders(t *testing.T, r request, base string) {
 	t.Helper()
 	wantOrigin, wantType := "", ""

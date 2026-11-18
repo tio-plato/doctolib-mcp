@@ -19,12 +19,10 @@ const blockPage = `<!DOCTYPE html><html><head><title>Doctolib</title><style>body
 <p>Le blocage de votre requête fait suite à un comportement ne respectant pas nos CGU.</p>
 <p>Code pour le support: 0000fake0000</p></body></html>`
 
-// gateNow is a fixed clock for the gate.
 func gateNow() time.Time {
 	return time.Date(2026, 11, 17, 10, 0, 0, 0, time.UTC)
 }
 
-// callAll calls the three tools once each and returns their errors.
 func callAll(t *testing.T, e *env) []error {
 	t.Helper()
 	_, searchErr := e.tools.Search(t.Context(), tools.SearchInput{Query: "dentiste", Place: "75001"})

@@ -8,7 +8,6 @@ import (
 	"github.com/tio-plato/doctolib-mcp/internal/tools"
 )
 
-// availabilityByMotive answers each availability request by its visit_motive_ids.
 func availabilityByMotive(answers map[string]func(http.ResponseWriter)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		answer, ok := answers[r.URL.Query().Get("visit_motive_ids")]

@@ -17,38 +17,32 @@ import (
 const (
 	searchPath = "/patient-health-search/api/v1/hcp/search"
 	pageSize   = 20
-	// distance_km keeps one decimal.
-	tenths = 10
+	tenths     = 10
 )
 
-// SearchInput is the input of search_practitioners.
 type SearchInput struct {
-	Query     string   `json:"query"               jsonschema:"speciality, keyword or practitioner name, e.g. dentiste"`
-	Place     string   `json:"place"               jsonschema:"5-digit French postcode or commune name. In Paris, Lyon and Marseille a postcode means its arrondissement, the name the whole city"`
-	Languages []string `json:"languages,omitempty" jsonschema:"ISO 639 codes, e.g. en or es; keeps practitioners who speak any of them"`
-	Page      int      `json:"page,omitempty"      jsonschema:"page number, from 0; 20 results a page"`
-	// The filters below passed a live check: Doctolib applied each one.
+	Query               string   `json:"query"                           jsonschema:"speciality, keyword or practitioner name, e.g. dentiste"`
+	Place               string   `json:"place"                           jsonschema:"5-digit French postcode or commune name. In Paris, Lyon and Marseille a postcode means its arrondissement, the name the whole city"`
+	Languages           []string `json:"languages,omitempty"             jsonschema:"ISO 639 codes, e.g. en or es; keeps practitioners who speak any of them"`
+	Page                int      `json:"page,omitempty"                  jsonschema:"page number, from 0; 20 results a page"`
 	Telehealth          *bool    `json:"telehealth,omitempty"            jsonschema:"only practitioners who offer video consultations"`
 	Sectors             []string `json:"sectors,omitempty"               jsonschema:"regulation sectors to keep, as in the results' sector.code. Doctors use contracted_1*, contracted_2* and non_contracted; dentists and similar contracted and contracted_with_extra; organisations organization_*"`
 	AvailableWithinDays *int     `json:"available_within_days,omitempty" jsonschema:"only practitioners with a free slot within this many days: 1 (today), 3, 7 or 14"`
 }
 
-// SearchOutput is the result of search_practitioners.
 type SearchOutput struct {
 	Place place.Place `json:"place"`
-	// SearchedLocation is Doctolib's search point, or the centre of the box when Doctolib gives none.
-	SearchedLocation place.Point `json:"searched_location"`
-	Total            *int        `json:"total"`
-	Page             int         `json:"page"`
-	PageSize         int         `json:"page_size"`
-	HasMore          bool        `json:"has_more"`
-	// FilterWarnings names the filters this page shows Doctolib did not apply.
-	FilterWarnings []string       `json:"filter_warnings"`
-	Results        []Practitioner `json:"results"`
-	Other          map[string]any `json:"other"`
+	// SearchedLocation is Doctolib's search point, else the centre of the place's box.
+	SearchedLocation place.Point    `json:"searched_location"`
+	Total            *int           `json:"total"`
+	Page             int            `json:"page"`
+	PageSize         int            `json:"page_size"`
+	HasMore          bool           `json:"has_more"`
+	FilterWarnings   []string       `json:"filter_warnings"`
+	Results          []Practitioner `json:"results"`
+	Other            map[string]any `json:"other"`
 }
 
-// Practitioner is one search result: a practitioner or an organisation at one practice.
 type Practitioner struct {
 	Name              string             `json:"name"`
 	Kind              string             `json:"kind"`
@@ -77,26 +71,22 @@ type Practitioner struct {
 	Other             map[string]any     `json:"other"`
 }
 
-// MatchedMotive is the visit motive Doctolib matched to the query.
 type MatchedMotive struct {
 	ID   *int64  `json:"id"`
 	Name *string `json:"name"`
 }
 
-// Label is a Doctolib code with its label; Label is null for a code the table does not know.
 type Label struct {
 	Code  string  `json:"code"`
 	Label *string `json:"label"`
 }
 
-// AvailabilityQuery is one combination the availability tool takes as it is.
 type AvailabilityQuery struct {
 	VisitMotiveID int64   `json:"visit_motive_id"`
 	AgendaIDs     []int64 `json:"agenda_ids"`
 	PracticeID    int64   `json:"practice_id"`
 }
 
-// Search runs search_practitioners: one geocoding lookup, then one Doctolib request.
 func (t *Tools) Search(ctx context.Context, in SearchInput) (*SearchOutput, error) {
 	codes, unknown, err := doctolibLanguages(in.Languages)
 	if err != nil {
@@ -148,8 +138,7 @@ type viewport struct {
 	Southwest latLng `json:"southwest"`
 }
 
-// searchBody is the body the Doctolib web front end sends; Doctolib refuses
-// it (422) without the full place and the filters object.
+// searchBody carries the full place and a filters object: without them Doctolib answers 422.
 func searchBody(in SearchInput, plc place.Place, today time.Time) searchRequest {
 	filters := map[string]any{}
 	if len(in.Languages) > 0 {
@@ -253,7 +242,6 @@ func organisePractitioner(raw json.RawMessage, ref place.Point, plc place.Place,
 	return p
 }
 
-// organiseIdentity fills the name, kind and speciality.
 func organiseIdentity(o *object, p *Practitioner) {
 	var typ *string
 	o.peek("type", &typ) // kind is derived; type itself stays in other
@@ -282,7 +270,6 @@ func organiseIdentity(o *object, p *Practitioner) {
 	}
 }
 
-// organiseLocation fills the address, the position, the distance and whether the result is in the area.
 func organiseLocation(o *object, p *Practitioner, ref place.Point, plc place.Place) {
 	loc := o.sub("location")
 	if loc == nil {
@@ -300,7 +287,6 @@ func organiseLocation(o *object, p *Practitioner, ref place.Point, plc place.Pla
 	p.InArea = p.Zipcode != nil && slices.Contains(plc.Postcodes, *p.Zipcode)
 }
 
-// organiseBooking fills the online booking fields and the ready-made availability query.
 func organiseBooking(o *object, p *Practitioner) {
 	online := o.sub("onlineBooking")
 	matched := o.sub("matchedVisitMotive")

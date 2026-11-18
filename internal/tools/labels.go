@@ -6,9 +6,7 @@ import (
 	"strings"
 )
 
-// language is one language code Doctolib uses, with its ISO 639 code, the
-// other ISO 639 codes of the same language (space-separated), its English
-// name and its French label.
+// language.aliases holds the language's other ISO 639 codes, space-separated.
 type language struct {
 	code    string
 	iso     string
@@ -17,11 +15,10 @@ type language struct {
 	label   string
 }
 
-// languages are the language codes Doctolib applies as search filters, found
-// on 2026-11-18 by searching with each code. Doctolib's codes are partly
-// country codes (gb for English, dz for Kabyle) and partly language codes.
-// The labels are Doctolib's own: those of the first 17 from its filter panel,
-// the others from practitioners' public pages that list each code.
+// languages are the codes Doctolib filters on, found on 2026-11-18 by searching with every ISO 639-1 language
+// code, every ISO 3166 country code and 34 three-letter codes of regional languages such as gcf and wol. Some of
+// Doctolib's codes are country codes (gb for English). The labels are Doctolib's: the first 17 from its filter
+// panel, the rest from practitioners' public pages.
 func languages() []language {
 	return []language{
 		{"it", "it", "ita", "Italian", "Italien"},
@@ -100,9 +97,7 @@ func languages() []language {
 	}
 }
 
-// sectors are the regulationSector codes Doctolib filters on, with the labels
-// of its filter panel, in its order: one set for doctors, one for professions
-// such as dentists, and two for organisations.
+// sectors have the labels and order of Doctolib's filter panel.
 func sectors() [][2]string {
 	return [][2]string{
 		{"contracted_1", "Secteur 1"},
@@ -144,7 +139,6 @@ func label(table map[string]string, code string) Label {
 	return Label{Code: code, Label: &l}
 }
 
-// Language is a language of a result: Doctolib's code with its ISO 639 code, English name and French label.
 type Language struct {
 	Code  string  `json:"code"`
 	ISO   *string `json:"iso"`
@@ -152,7 +146,6 @@ type Language struct {
 	Label *string `json:"label"`
 }
 
-// languageOf describes Doctolib's code; a code the table does not know has a null ISO code, name and label.
 func languageOf(code string) Language {
 	for _, l := range languages() {
 		if l.code == code {
@@ -162,10 +155,8 @@ func languageOf(code string) Language {
 	return Language{Code: code, ISO: nil, Name: nil, Label: nil}
 }
 
-// doctolibLanguages turns ISO 639 codes, of any of its parts, into Doctolib's.
-// A code the table does not know is sent as it is and returned in unknown. A
-// code that is Doctolib's own spelling of another language is refused, since
-// sending it would search for that other language.
+// doctolibLanguages refuses a code Doctolib uses for another language, since sending it would search for that
+// language. A code missing from the table is sent unchanged and returned in unknown.
 func doctolibLanguages(isos []string) ([]string, []string, error) {
 	var codes, unknown []string
 	table := languages()
@@ -182,7 +173,6 @@ func doctolibLanguages(isos []string) ([]string, []string, error) {
 		} else if !slices.Contains(unknown, iso) {
 			unknown = append(unknown, iso)
 		}
-		// Two ISO codes of one language, or one code twice, go out once.
 		if !slices.Contains(codes, code) {
 			codes = append(codes, code)
 		}

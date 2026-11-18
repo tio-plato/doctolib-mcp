@@ -20,13 +20,12 @@ const (
 	helperDirEnv   = "DOCTOLIB_GATE_HELPER_DIR"
 	helperStartEnv = "DOCTOLIB_GATE_HELPER_START"
 	interval       = 500 * time.Millisecond
-	// scheduling is how late a child may print the time it got through: a
-	// gate that does not wait lets both through at once, far below this.
+	// How late a child may report passing; a gate that doesn't wait lets both through at once, far below this.
 	scheduling = interval / 2
 )
 
-// TestHelperProcess is not a test: run as a child process, it waits for the
-// common start time, passes the gate once and prints when it got through.
+// TestHelperProcess is not a test: run as a child process, it passes the gate once at the shared start time
+// and prints when.
 func TestHelperProcess(t *testing.T) {
 	t.Parallel()
 	dir := os.Getenv(helperDirEnv)
@@ -50,11 +49,8 @@ func TestHelperProcess(t *testing.T) {
 	_, _ = fmt.Fprintf(os.Stdout, "passed=%d\n", time.Now().UnixNano())
 }
 
-// Two server processes share the state directory: the second one is let
-// through only once the interval since the first one has passed. The gap is
-// read from the request log they share, where the gate records when it let
-// each request through, and checked against when each child saw Acquire
-// return, give or take scheduling.
+// The gap is read from the shared request log and checked against when each child saw Acquire return, give or
+// take scheduling.
 func TestIntervalHoldsAcrossProcesses(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -107,7 +103,6 @@ func passedAt(t *testing.T, output string) time.Time {
 	return time.Time{}
 }
 
-// After the clock steps back an hour, the next request waits one interval, not an hour.
 func TestClockSteppingBackDoesNotStall(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
@@ -128,7 +123,6 @@ func TestClockSteppingBackDoesNotStall(t *testing.T) {
 	}
 }
 
-// A process waiting for the interval does not send once another one has written the block marker.
 func TestBlockWrittenWhileWaitingIsHonoured(t *testing.T) {
 	t.Parallel()
 	asleep, wake := make(chan struct{}), make(chan struct{})
@@ -169,7 +163,6 @@ func TestBlockWrittenWhileWaitingIsHonoured(t *testing.T) {
 	}
 }
 
-// After the clock steps back, the request log stays in ascending order, which the caps rely on.
 func TestLogStaysInOrderAfterTheClockStepsBack(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
