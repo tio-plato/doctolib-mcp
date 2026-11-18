@@ -102,34 +102,40 @@ func languages() []language {
 	}
 }
 
-// sectorLabels maps the regulationSector codes Doctolib filters on to the
-// labels of its filter panel: one set for doctors, one for professions such as
-// dentists, and two for organisations.
-func sectorLabels() map[string]string {
-	return map[string]string{
-		"contracted_1":                "Secteur 1",
-		"contracted_1_with_extra":     "Secteur 1 avec droit permanent à dépassement",
-		"contracted_1_with_optam":     "Secteur 1 OPTAM",
-		"contracted_1_with_optam_co":  "Secteur 1 OPTAM-CO",
-		"contracted_2":                "Secteur 2",
-		"contracted_2_with_optam":     "Secteur 2 OPTAM",
-		"contracted_2_with_optam_co":  "Secteur 2 OPTAM-CO",
-		"non_contracted":              "Secteur 3 (non conventionné)",
-		"contracted":                  "Conventionné",
-		"contracted_with_extra":       "Conventionné avec dépassements d’honoraires",
-		"organization_contracted":     "Etablissement conventionné",
-		"organization_non_contracted": "Etablissement non conventionné",
+// sectors are the regulationSector codes Doctolib filters on, with the labels
+// of its filter panel, in its order: one set for doctors, one for professions
+// such as dentists, and two for organisations.
+func sectors() [][2]string {
+	return [][2]string{
+		{"contracted_1", "Secteur 1"},
+		{"contracted_1_with_extra", "Secteur 1 avec droit permanent à dépassement"},
+		{"contracted_1_with_optam", "Secteur 1 OPTAM"},
+		{"contracted_1_with_optam_co", "Secteur 1 OPTAM-CO"},
+		{"contracted_2", "Secteur 2"},
+		{"contracted_2_with_optam", "Secteur 2 OPTAM"},
+		{"contracted_2_with_optam_co", "Secteur 2 OPTAM-CO"},
+		{"non_contracted", "Secteur 3 (non conventionné)"},
+		{"contracted", "Conventionné"},
+		{"contracted_with_extra", "Conventionné avec dépassements d’honoraires"},
+		{"organization_contracted", "Etablissement conventionné"},
+		{"organization_non_contracted", "Etablissement non conventionné"},
 	}
 }
 
-// sectorCodes are the regulationSector codes Doctolib filters on, in the order of its filter panels.
-func sectorCodes() []string {
-	return []string{
-		"contracted_1", "contracted_1_with_extra", "contracted_1_with_optam", "contracted_1_with_optam_co",
-		"contracted_2", "contracted_2_with_optam", "contracted_2_with_optam_co", "non_contracted",
-		"contracted", "contracted_with_extra",
-		"organization_contracted", "organization_non_contracted",
+func sectorLabels() map[string]string {
+	labels := map[string]string{}
+	for _, s := range sectors() {
+		labels[s[0]] = s[1]
 	}
+	return labels
+}
+
+func sectorCodes() []string {
+	codes := make([]string, 0, len(sectors()))
+	for _, s := range sectors() {
+		codes = append(codes, s[0])
+	}
+	return codes
 }
 
 func label(table map[string]string, code string) Label {
