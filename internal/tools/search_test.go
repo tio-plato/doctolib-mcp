@@ -412,3 +412,39 @@ func TestSearchWarnsAboutFiltersDoctolibIgnored(t *testing.T) {
 		t.Errorf("warned about sectors, which every result that has one matches:\n%s", warnings)
 	}
 }
+
+func TestSearchChecksLanguagesByDoctolibCode(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+
+	// en is sent as gb: only the first of the four results in search.json declares it.
+	out, err := e.tools.Search(
+		t.Context(),
+		tools.SearchInput{Query: "dentiste", Place: "75001", Languages: []string{"en"}},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.FilterWarnings) != 1 || !strings.Contains(out.FilterWarnings[0], "languages: 3 of 4") {
+		t.Errorf("warnings %q, want one about 3 of 4 results", out.FilterWarnings)
+	}
+}
+
+func TestSearchWarnsWhenNobodySpeaksTheLanguage(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.fake.handle(searchPath, func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusPartialContent, `{"total": 0, "healthcareProviders": []}`)
+	})
+
+	out, err := e.tools.Search(
+		t.Context(),
+		tools.SearchInput{Query: "dentiste", Place: "75001", Languages: []string{"es"}},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.FilterWarnings) != 1 || !strings.Contains(out.FilterWarnings[0], "no result") {
+		t.Errorf("warnings %q, want one about no result", out.FilterWarnings)
+	}
+}

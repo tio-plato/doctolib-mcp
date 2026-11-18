@@ -7,10 +7,10 @@ import (
 )
 
 // filterWarnings names the requested filters that the results show Doctolib
-// did not apply: Doctolib silently ignores a filter a speciality does not
-// offer, such as video consultations for dentists. It applies or ignores a
-// filter for the whole search, so one result that does not match is enough.
-// A result whose field is null is counted apart, as one that cannot be checked.
+// may not have applied: Doctolib silently ignores a filter a speciality does
+// not offer, such as video consultations for dentists. A result whose field is
+// null is counted apart, as one that cannot be checked. A free slot within N
+// days cannot be checked from the results at all.
 func filterWarnings(in SearchInput, unknown []string, results []Practitioner) []string {
 	warnings := []string{}
 	if len(unknown) > 0 {
@@ -35,6 +35,10 @@ func filterWarnings(in SearchInput, unknown []string, results []Practitioner) []
 				}
 				return slices.Contains(in.Sectors, p.Sector.Code), true
 			})
+	}
+	if len(in.Languages) > 0 && len(results) == 0 {
+		warnings = append(warnings,
+			"languages: no result, so no practitioner here who meets the other filters declares these languages")
 	}
 	if len(in.Languages) > 0 {
 		warnings = appendCheck(warnings, results, "languages", "speak none of the requested languages",
@@ -68,7 +72,7 @@ func appendCheck(
 		return warnings
 	}
 	w := fmt.Sprintf(
-		"%s: %d of %d results %s, so Doctolib did not apply this filter",
+		"%s: %d of %d results %s, so Doctolib may not have applied this filter",
 		filter,
 		off,
 		len(results),
