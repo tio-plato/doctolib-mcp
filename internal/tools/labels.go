@@ -17,9 +17,8 @@ type language struct {
 // languages are the language codes Doctolib applies as search filters, found
 // on 2026-11-18 by searching with each code. Doctolib's codes are partly
 // country codes (gb for English, dz for Kabyle) and partly language codes.
-// The labels of the first 17 come from Doctolib's filter panel, those of the
-// next 16 from practitioners' public pages; the last 38 are inferred from
-// codes whose meaning is plain.
+// The labels are Doctolib's own: those of the first 17 from its filter panel,
+// the others from practitioners' public pages that list each code.
 func languages() []language {
 	return []language{
 		{"it", "it", "Italian", "Italien"},
@@ -77,7 +76,7 @@ func languages() []language {
 		{"kr", "ko", "Korean", "Coréen"},
 		{"th", "th", "Thai", "Thaï"},
 		{"hi", "hi", "Hindi", "Hindi"},
-		{"ur", "ur", "Urdu", "Ourdou"},
+		{"ur", "ur", "Urdu", "Urdu"},
 		{"bn", "bn", "Bengali", "Bengali"},
 		{"ta", "ta", "Tamil", "Tamoul"},
 		{"mg", "mg", "Malagasy", "Malgache"},
@@ -85,7 +84,7 @@ func languages() []language {
 		{"ku", "ku", "Kurdish", "Kurde"},
 		{"bs", "bs", "Bosnian", "Bosnien"},
 		{"ff", "ff", "Fula", "Peul"},
-		{"gcf", "gcf", "Guadeloupean Creole", "Créole guadeloupéen"},
+		{"gcf", "gcf", "Antillean Creole", "Créole Antillais"},
 		{"mfe", "mfe", "Mauritian Creole", "Créole mauricien"},
 		{"rcf", "rcf", "Réunion Creole", "Créole réunionnais"},
 		{"sk", "sk", "Slovak", "Slovaque"},
@@ -99,7 +98,7 @@ func languages() []language {
 		{"ka", "ka", "Georgian", "Géorgien"},
 		{"lt", "lt", "Lithuanian", "Lituanien"},
 		{"rn", "rn", "Kirundi", "Kirundi"},
-		{"snk", "snk", "Soninke", "Soninké"},
+		{"snk", "snk", "Soninke", "Soniké"},
 	}
 }
 

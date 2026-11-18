@@ -184,7 +184,7 @@ Doctolib silently ignores a filter a speciality does not offer. filter_warnings 
 Pass a result's availability_query to the availability tool (up to 20 in one call, one page of results) and its profile_url to practitioner_profile. availability_query is null when the result cannot be booked online (bookable_online false).
 allow_new_patients is Doctolib's flag on matched_motive, copied as it is: false is inferred to mean that motive does not take new patients. It is not a verdict; judge with practitioner_profile and availability.
 sector is the regulation sector (secteur) with Doctolib's French label. Each of languages has Doctolib's code, the ISO 639 code, the English name and the French label; they are null for a code the server does not know.
-Languages the server knows (ISO 639 code and name): ` + languageList() + `. Doctolib's own labels exist for the first 33; the others are inferred from codes whose meaning is plain.
+Languages the server knows (ISO 639 code and name): ` + languageList() + `. The French labels are Doctolib's own.
 other holds every Doctolib field the server did not organise, under its original name.
 ` + blockedRule
 }
