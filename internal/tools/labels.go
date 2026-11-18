@@ -6,12 +6,15 @@ import (
 	"strings"
 )
 
-// language is one language code Doctolib uses, with its ISO 639 code, its English name and its French label.
+// language is one language code Doctolib uses, with its ISO 639 code, the
+// other ISO 639 codes of the same language (space-separated), its English
+// name and its French label.
 type language struct {
-	code  string
-	iso   string
-	name  string
-	label string
+	code    string
+	iso     string
+	aliases string
+	name    string
+	label   string
 }
 
 // languages are the language codes Doctolib applies as search filters, found
@@ -21,84 +24,79 @@ type language struct {
 // the others from practitioners' public pages that list each code.
 func languages() []language {
 	return []language{
-		{"it", "it", "Italian", "Italien"},
-		{"gb", "en", "English", "Anglais"},
-		{"ar", "ar", "Arabic", "Arabe"},
-		{"cn", "zh", "Chinese", "Chinois"},
-		{"es", "es", "Spanish", "Espagnol"},
-		{"fr", "fr", "French", "Français"},
-		{"gr", "el", "Greek", "Grec"},
-		{"de", "de", "German", "Allemand"},
-		{"jp", "ja", "Japanese", "Japonais"},
-		{"sgn", "sgn", "Sign language", "Langue des signes"},
-		{"fa", "fa", "Persian", "Persan"},
-		{"pl", "pl", "Polish", "Polonais"},
-		{"pt", "pt", "Portuguese", "Portugais"},
-		{"ro", "ro", "Romanian", "Roumain"},
-		{"ru", "ru", "Russian", "Russe"},
-		{"tr", "tr", "Turkish", "Turc"},
-		{"ua", "uk", "Ukrainian", "Ukrainien"},
+		{"it", "it", "ita", "Italian", "Italien"},
+		{"gb", "en", "eng", "English", "Anglais"},
+		{"ar", "ar", "ara", "Arabic", "Arabe"},
+		{"cn", "zh", "chi zho", "Chinese", "Chinois"},
+		{"es", "es", "spa", "Spanish", "Espagnol"},
+		{"fr", "fr", "fra fre", "French", "Français"},
+		{"gr", "el", "ell gre", "Greek", "Grec"},
+		{"de", "de", "deu ger", "German", "Allemand"},
+		{"jp", "ja", "jpn", "Japanese", "Japonais"},
+		{"sgn", "sgn", "", "Sign language", "Langue des signes"},
+		{"fa", "fa", "fas per", "Persian", "Persan"},
+		{"pl", "pl", "pol", "Polish", "Polonais"},
+		{"pt", "pt", "por", "Portuguese", "Portugais"},
+		{"ro", "ro", "ron rum", "Romanian", "Roumain"},
+		{"ru", "ru", "rus", "Russian", "Russe"},
+		{"tr", "tr", "tur", "Turkish", "Turc"},
+		{"ua", "uk", "ukr", "Ukrainian", "Ukrainien"},
 
-		{"dz", "kab", "Kabyle", "Kabyle"},
-		{"ma", "ber", "Berber", "Berbère"},
-		{"ir", "ira", "Iranian", "Iranien"},
-		{"si", "si", "Sinhala", "Singhalais"},
-		{"km", "km", "Khmer", "Khmer"},
-		{"la", "lo", "Lao", "Laotien"},
-		{"lb", "lb", "Luxembourgish", "Luxembourgeois"},
-		{"ca", "ca", "Catalan", "Catalan"},
-		{"co", "co", "Corsican", "Corse"},
-		{"be", "be", "Belarusian", "Biélorusse"},
-		{"sg", "sg", "Sango", "Sango"},
-		{"af", "af", "Afrikaans", "Afrikaans"},
-		{"kg", "kg", "Kongo", "Kikongo"},
-		{"gu", "gu", "Gujarati", "Gujarati"},
-		{"bm", "bm", "Bambara", "Bambara"},
-		{"ln", "ln", "Lingala", "Lingala"},
+		{"dz", "kab", "", "Kabyle", "Kabyle"},
+		{"ma", "ber", "", "Berber", "Berbère"},
+		{"ir", "ira", "", "Iranian", "Iranien"},
+		{"si", "si", "sin", "Sinhala", "Singhalais"},
+		{"km", "km", "khm", "Khmer", "Khmer"},
+		{"la", "lo", "lao", "Lao", "Laotien"},
+		{"lb", "lb", "ltz", "Luxembourgish", "Luxembourgeois"},
+		{"ca", "ca", "cat", "Catalan", "Catalan"},
+		{"co", "co", "cos", "Corsican", "Corse"},
+		{"be", "be", "bel", "Belarusian", "Biélorusse"},
+		{"sg", "sg", "sag", "Sango", "Sango"},
+		{"af", "af", "afr", "Afrikaans", "Afrikaans"},
+		{"kg", "kg", "kon", "Kongo", "Kikongo"},
+		{"gu", "gu", "guj", "Gujarati", "Gujarati"},
+		{"bm", "bm", "bam", "Bambara", "Bambara"},
+		{"ln", "ln", "lin", "Lingala", "Lingala"},
 
-		{
-			"vn",
-			"vi",
-			"Vietnamese",
-			"Vietnamien",
-		},
-		{"il", "he", "Hebrew", "Hébreu"},
-		{"nl", "nl", "Dutch", "Néerlandais"},
-		{"se", "sv", "Swedish", "Suédois"},
-		{"no", "no", "Norwegian", "Norvégien"},
-		{"cz", "cs", "Czech", "Tchèque"},
-		{"hu", "hu", "Hungarian", "Hongrois"},
-		{"bg", "bg", "Bulgarian", "Bulgare"},
-		{"hr", "hr", "Croatian", "Croate"},
-		{"rs", "sr", "Serbian", "Serbe"},
-		{"sq", "sq", "Albanian", "Albanais"},
-		{"hy", "hy", "Armenian", "Arménien"},
-		{"kr", "ko", "Korean", "Coréen"},
-		{"th", "th", "Thai", "Thaï"},
-		{"hi", "hi", "Hindi", "Hindi"},
-		{"ur", "ur", "Urdu", "Urdu"},
-		{"bn", "bn", "Bengali", "Bengali"},
-		{"ta", "ta", "Tamil", "Tamoul"},
-		{"mg", "mg", "Malagasy", "Malgache"},
-		{"ht", "ht", "Haitian Creole", "Créole haïtien"},
-		{"ku", "ku", "Kurdish", "Kurde"},
-		{"bs", "bs", "Bosnian", "Bosnien"},
-		{"ff", "ff", "Fula", "Peul"},
-		{"gcf", "gcf", "Antillean Creole", "Créole Antillais"},
-		{"mfe", "mfe", "Mauritian Creole", "Créole mauricien"},
-		{"rcf", "rcf", "Réunion Creole", "Créole réunionnais"},
-		{"sk", "sk", "Slovak", "Slovaque"},
-		{"so", "so", "Somali", "Somali"},
-		{"wol", "wo", "Wolof", "Wolof"},
-		{"aze", "az", "Azerbaijani", "Azéri"},
-		{"dk", "da", "Danish", "Danois"},
-		{"eu", "eu", "Basque", "Basque"},
-		{"fi", "fi", "Finnish", "Finnois"},
-		{"id", "id", "Indonesian", "Indonésien"},
-		{"ka", "ka", "Georgian", "Géorgien"},
-		{"lt", "lt", "Lithuanian", "Lituanien"},
-		{"rn", "rn", "Kirundi", "Kirundi"},
-		{"snk", "snk", "Soninke", "Soniké"},
+		{"vn", "vi", "vie", "Vietnamese", "Vietnamien"},
+		{"il", "he", "heb", "Hebrew", "Hébreu"},
+		{"nl", "nl", "dut nld", "Dutch", "Néerlandais"},
+		{"se", "sv", "swe", "Swedish", "Suédois"},
+		{"no", "no", "nb nn nno nob nor", "Norwegian", "Norvégien"},
+		{"cz", "cs", "ces cze", "Czech", "Tchèque"},
+		{"hu", "hu", "hun", "Hungarian", "Hongrois"},
+		{"bg", "bg", "bul", "Bulgarian", "Bulgare"},
+		{"hr", "hr", "hrv", "Croatian", "Croate"},
+		{"rs", "sr", "srp", "Serbian", "Serbe"},
+		{"sq", "sq", "alb sqi", "Albanian", "Albanais"},
+		{"hy", "hy", "arm hye", "Armenian", "Arménien"},
+		{"kr", "ko", "kor", "Korean", "Coréen"},
+		{"th", "th", "tha", "Thai", "Thaï"},
+		{"hi", "hi", "hin", "Hindi", "Hindi"},
+		{"ur", "ur", "urd", "Urdu", "Urdu"},
+		{"bn", "bn", "ben", "Bengali", "Bengali"},
+		{"ta", "ta", "tam", "Tamil", "Tamoul"},
+		{"mg", "mg", "mlg", "Malagasy", "Malgache"},
+		{"ht", "ht", "hat", "Haitian Creole", "Créole haïtien"},
+		{"ku", "ku", "kur", "Kurdish", "Kurde"},
+		{"bs", "bs", "bos", "Bosnian", "Bosnien"},
+		{"ff", "ff", "ful", "Fula", "Peul"},
+		{"gcf", "gcf", "", "Antillean Creole", "Créole Antillais"},
+		{"mfe", "mfe", "", "Mauritian Creole", "Créole mauricien"},
+		{"rcf", "rcf", "", "Réunion Creole", "Créole réunionnais"},
+		{"sk", "sk", "slk slo", "Slovak", "Slovaque"},
+		{"so", "so", "som", "Somali", "Somali"},
+		{"wol", "wo", "wol", "Wolof", "Wolof"},
+		{"aze", "az", "aze", "Azerbaijani", "Azéri"},
+		{"dk", "da", "dan", "Danish", "Danois"},
+		{"eu", "eu", "baq eus", "Basque", "Basque"},
+		{"fi", "fi", "fin", "Finnish", "Finnois"},
+		{"id", "id", "ind", "Indonesian", "Indonésien"},
+		{"ka", "ka", "geo kat", "Georgian", "Géorgien"},
+		{"lt", "lt", "lit", "Lithuanian", "Lituanien"},
+		{"rn", "rn", "run", "Kirundi", "Kirundi"},
+		{"snk", "snk", "", "Soninke", "Soniké"},
 	}
 }
 
@@ -164,21 +162,23 @@ func languageOf(code string) Language {
 	return Language{Code: code, ISO: nil, Name: nil, Label: nil}
 }
 
-// doctolibLanguages turns ISO 639 codes into Doctolib's. A code the table does
-// not know is sent as it is and returned in unknown. A code that is Doctolib's
-// own spelling of another language is refused, since sending it would search
-// for that other language.
+// doctolibLanguages turns ISO 639 codes, of any of its parts, into Doctolib's.
+// A code the table does not know is sent as it is and returned in unknown. A
+// code that is Doctolib's own spelling of another language is refused, since
+// sending it would search for that other language.
 func doctolibLanguages(isos []string) ([]string, []string, error) {
 	var codes, unknown []string
 	for _, iso := range isos {
-		if i := slices.IndexFunc(languages(), func(l language) bool { return l.iso == iso }); i >= 0 {
+		if i := slices.IndexFunc(languages(), func(l language) bool {
+			return l.iso == iso || slices.Contains(strings.Fields(l.aliases), iso)
+		}); i >= 0 {
 			codes = append(codes, languages()[i].code)
 			continue
 		}
 		if i := slices.IndexFunc(languages(), func(l language) bool { return l.code == iso }); i >= 0 {
 			l := languages()[i]
-			return nil, nil, fmt.Errorf("languages: %q is Doctolib's own code for %s; pass the ISO 639 code %q",
-				iso, l.name, l.iso)
+			return nil, nil, fmt.Errorf("languages: the server knows no language with the ISO 639 code %q; "+
+				"Doctolib uses %q for %s (ISO %q), so it is not sent as it is", iso, iso, l.name, l.iso)
 		}
 		codes = append(codes, iso)
 		unknown = append(unknown, iso)

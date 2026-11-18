@@ -325,8 +325,9 @@ func TestSearchPassesTheVerifiedFilters(t *testing.T) {
 
 func TestSearchRefusesDoctolibOwnLanguageCodes(t *testing.T) {
 	t.Parallel()
-	// gb is Doctolib's code for English (ISO en); la is ISO for Latin but Doctolib's code for Lao (ISO lo).
-	for code, want := range map[string]string{"gb": `"en"`, "la": `"lo"`} {
+	// gb is Doctolib's code for English (ISO en); la is ISO for Latin but Doctolib's code for Lao (ISO lo);
+	// dz is ISO for Dzongkha but Doctolib's code for Kabyle (ISO kab).
+	for code, want := range map[string]string{"gb": `"en"`, "la": `"lo"`, "dz": `Kabyle (ISO "kab")`} {
 		t.Run(code, func(t *testing.T) {
 			t.Parallel()
 			e := newEnv(t)
@@ -338,10 +339,38 @@ func TestSearchRefusesDoctolibOwnLanguageCodes(t *testing.T) {
 			if !strings.Contains(text, want) {
 				t.Errorf("error %q does not point to %s", text, want)
 			}
-			if n := len(e.fake.doctolibRequests()); n != 0 {
-				t.Errorf("sent %d Doctolib requests", n)
+			if n := len(e.fake.doctolibRequests()) + len(e.fake.geoRequests()); n != 0 {
+				t.Errorf("sent %d requests", n)
 			}
 		})
+	}
+}
+
+func TestSearchTakesThreeLetterISOCodes(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+
+	// ISO 639-2/3 for Wolof, English and Norwegian Bokmål.
+	out, err := e.tools.Search(t.Context(), tools.SearchInput{
+		Query: "dentiste", Place: "75001", Languages: []string{"wol", "eng", "nb"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var body struct {
+		Filters struct {
+			Languages []string `json:"languages"`
+		} `json:"filters"`
+	}
+	err = json.Unmarshal(e.fake.doctolibRequests()[0].Body, &body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertJSON(t, body.Filters.Languages, `["wol", "gb", "no"]`)
+	for _, w := range out.FilterWarnings {
+		if strings.Contains(w, "does not know") {
+			t.Errorf("warned about a known code: %s", w)
+		}
 	}
 }
 

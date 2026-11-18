@@ -98,15 +98,15 @@ type AvailabilityQuery struct {
 
 // Search runs search_practitioners: one geocoding lookup, then one Doctolib request.
 func (t *Tools) Search(ctx context.Context, in SearchInput) (*SearchOutput, error) {
-	plc, err := t.places.Resolve(ctx, in.Place)
-	if err != nil {
-		return nil, fmt.Errorf("resolve place: %w", err)
-	}
 	codes, unknown, err := doctolibLanguages(in.Languages)
 	if err != nil {
 		return nil, err
 	}
 	in.Languages = codes
+	plc, err := t.places.Resolve(ctx, in.Place)
+	if err != nil {
+		return nil, fmt.Errorf("resolve place: %w", err)
+	}
 	raw, err := t.doctolib.Post(ctx, searchPath, "page="+strconv.Itoa(in.Page), searchBody(in, plc, t.today()))
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
