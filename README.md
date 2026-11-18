@@ -15,7 +15,7 @@ It works with any MCP client over stdio: Claude Code, Claude Desktop, Hermes and
 
 | Tool | What it returns | Requests to Doctolib |
 |---|---|---|
-| `search_practitioners` | Practitioners and organisations near a postcode or town, with distance, area, languages, sector, online booking, a ready-made `availability_query` and the `profile_url` to book | 1 (plus 1–2 to geo.api.gouv.fr) |
+| `search_practitioners` | Practitioners and organisations near a postcode or town, with distance, area, languages, sector, online booking, a ready-made `availability_query` and the `profile_url` to book; Doctolib can filter by language, video consultation, regulation sector and a free slot within 1, 3, 7 or 14 days | 1 (plus 1–2 to geo.api.gouv.fr) |
 | `practitioner_profile` | A practitioner's visit motives, which practice and agenda offer each one, new-patient restrictions, disabled agendas, places with phone numbers | 1 |
 | `availability` | For 1 to 20 `availability_query` objects: status, earliest slot and free times over 15 days | 1 per query |
 

@@ -295,3 +295,27 @@ func TestSearchKeepsEmptyObjects(t *testing.T) {
 	assertJSON(t, out.Other["searchedLocation"], `{}`)
 	assertJSON(t, out.Results[0].Other["speciality"], `{}`)
 }
+
+func TestSearchPassesTheVerifiedFilters(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+
+	_, err := e.tools.Search(t.Context(), tools.SearchInput{
+		Query: "dermatologue", Place: "75001", Telehealth: true,
+		Sectors: []string{"contracted_2", "organization_contracted"}, AvailableWithinDays: 7,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var body struct {
+		Filters json.RawMessage `json:"filters"`
+	}
+	err = json.Unmarshal(e.fake.doctolibRequests()[0].Body, &body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// testNow is 17 November in Paris: 7 days ends at midnight on 24 November, Paris time, sent in UTC.
+	assertJSON(t, body.Filters, `{"telehealth": true, "regulationSector": ["CONTRACTED_2", "ORGANIZATION_CONTRACTED"],
+		"availabilitiesBefore": "2026-11-23T23:00:00.000Z"}`)
+}

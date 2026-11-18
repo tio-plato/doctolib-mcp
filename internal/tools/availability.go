@@ -126,10 +126,15 @@ func (t *Tools) Availability(ctx context.Context, in AvailabilityInput) (*Availa
 	return out, nil
 }
 
+// today is the start of the current day in Paris.
+func (t *Tools) today() time.Time {
+	now := t.now().In(t.paris)
+	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, t.paris)
+}
+
 func (t *Tools) startDate(s string) (time.Time, error) {
 	if s == "" {
-		now := t.now().In(t.paris)
-		return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, t.paris), nil
+		return t.today(), nil
 	}
 	d, err := time.ParseInLocation(dateLayout, s, t.paris)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/tio-plato/doctolib-mcp/internal/place"
 )
@@ -26,6 +27,10 @@ type SearchInput struct {
 	Place     string   `json:"place"               jsonschema:"5-digit French postcode, or commune name such as Lyon or Saint-Étienne. Postcodes of Paris, Lyon and Marseille resolve to their arrondissement, the names to the whole city"`
 	Languages []string `json:"languages,omitempty" jsonschema:"Doctolib language codes (not ISO, see the tool description); Doctolib keeps practitioners who speak one of them"`
 	Page      int      `json:"page,omitempty"      jsonschema:"page number, from 0; 20 results a page"`
+	// The filters below passed a live check: Doctolib applied each one.
+	Telehealth          bool     `json:"telehealth,omitempty"            jsonschema:"only practitioners who offer video consultations"`
+	Sectors             []string `json:"sectors,omitempty"               jsonschema:"regulation sectors to keep, as in the results' sector.code"`
+	AvailableWithinDays int      `json:"available_within_days,omitempty" jsonschema:"only practitioners with a free slot within this many days: 1 (today), 3, 7 or 14"`
 }
 
 // SearchOutput is the result of search_practitioners.
@@ -95,7 +100,7 @@ func (t *Tools) Search(ctx context.Context, in SearchInput) (*SearchOutput, erro
 	if err != nil {
 		return nil, fmt.Errorf("resolve place: %w", err)
 	}
-	raw, err := t.doctolib.Post(ctx, searchPath, "page="+strconv.Itoa(in.Page), searchBody(in, plc))
+	raw, err := t.doctolib.Post(ctx, searchPath, "page="+strconv.Itoa(in.Page), searchBody(in, plc, t.today()))
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
@@ -133,10 +138,25 @@ type viewport struct {
 
 // searchBody is the body the Doctolib web front end sends; Doctolib refuses
 // it (422) without the full place and the filters object.
-func searchBody(in SearchInput, plc place.Place) searchRequest {
+func searchBody(in SearchInput, plc place.Place, today time.Time) searchRequest {
 	filters := map[string]any{}
 	if len(in.Languages) > 0 {
 		filters["languages"] = in.Languages
+	}
+	if in.Telehealth {
+		filters["telehealth"] = true
+	}
+	if len(in.Sectors) > 0 {
+		upper := make([]string, 0, len(in.Sectors))
+		for _, s := range in.Sectors {
+			upper = append(upper, strings.ToUpper(s))
+		}
+		filters["regulationSector"] = upper
+	}
+	if in.AvailableWithinDays > 0 {
+		// As the web front end sends it: the end of the last day, Paris time, in UTC.
+		end := today.AddDate(0, 0, in.AvailableWithinDays)
+		filters["availabilitiesBefore"] = end.UTC().Format("2006-01-02T15:04:05.000Z")
 	}
 	return searchRequest{
 		Keyword: in.Query,

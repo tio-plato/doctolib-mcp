@@ -27,6 +27,18 @@ func sectorLabels() map[string]string {
 	return map[string]string{}
 }
 
+// sectorCodes are the regulationSector codes of search results that Doctolib's
+// /filters endpoint offers as filters, in upper case: one set for doctors, one
+// for professions such as dentists, and two for organisations.
+func sectorCodes() []string {
+	return []string{
+		"contracted_1", "contracted_1_with_extra", "contracted_1_with_optam", "contracted_1_with_optam_co",
+		"contracted_2", "contracted_2_with_optam", "contracted_2_with_optam_co", "non_contracted",
+		"contracted", "contracted_with_extra",
+		"organization_contracted", "organization_non_contracted",
+	}
+}
+
 func languageCodes() []string {
 	return slices.Sorted(maps.Keys(languageNames()))
 }

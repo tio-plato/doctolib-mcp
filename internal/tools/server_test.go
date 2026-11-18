@@ -145,3 +145,22 @@ func TestSearchAcceptsNullForOptionalLanguages(t *testing.T) {
 		t.Fatalf("languages null was refused: %v %+v", err, res)
 	}
 }
+
+func TestSearchSchemaRefusesUnknownFilterValues(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	cs := connect(t, e)
+
+	for _, args := range []map[string]any{
+		{"query": "dentiste", "place": "75001", "sectors": []string{"secteur_2"}},
+		{"query": "dentiste", "place": "75001", "available_within_days": 5},
+	} {
+		res, err := cs.CallTool(t.Context(), &mcp.CallToolParams{Name: "search_practitioners", Arguments: args})
+		if err == nil && !res.IsError {
+			t.Errorf("%v was accepted", args)
+		}
+	}
+	if n := len(e.fake.doctolibRequests()); n != 0 {
+		t.Errorf("sent %d Doctolib requests", n)
+	}
+}
