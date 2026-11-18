@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -432,30 +433,41 @@ func TestSearchChecksLanguagesByDoctolibCode(t *testing.T) {
 
 func TestSearchWarnsWhenNobodySpeaksTheLanguage(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t)
-	e.fake.handle(searchPath, func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusPartialContent, `{"total": 0, "healthcareProviders": []}`)
-	})
+	for name, tc := range map[string]struct {
+		page  int
+		total int
+		warn  bool
+	}{
+		"nobody on the first page":   {page: 0, total: 0, warn: true},
+		"nobody, asked for page 3":   {page: 3, total: 0, warn: true},
+		"page 3 past the last match": {page: 3, total: 25, warn: false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+			e.fake.handle(searchPath, func(w http.ResponseWriter, _ *http.Request) {
+				writeJSON(
+					w,
+					http.StatusPartialContent,
+					fmt.Sprintf(`{"total": %d, "healthcareProviders": []}`, tc.total),
+				)
+			})
 
-	out, err := e.tools.Search(
-		t.Context(),
-		tools.SearchInput{Query: "dentiste", Place: "75001", Languages: []string{"es"}},
-	)
-	if err != nil {
-		t.Fatal(err)
+			out, err := e.tools.Search(t.Context(), tools.SearchInput{
+				Query: "dentiste", Place: "75001", Languages: []string{"es"}, Page: tc.page,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			warned := slices.ContainsFunc(
+				out.FilterWarnings,
+				func(w string) bool { return strings.Contains(w, "no result") },
+			)
+			if warned != tc.warn {
+				t.Errorf("warnings %q, want a no-result warning: %v", out.FilterWarnings, tc.warn)
+			}
+		})
 	}
-	if len(out.FilterWarnings) != 1 || !strings.Contains(out.FilterWarnings[0], "no result") {
-		t.Errorf("warnings %q, want one about no result", out.FilterWarnings)
-	}
-
-	// Past the last page an empty page says nothing about the languages.
-	out, err = e.tools.Search(t.Context(), tools.SearchInput{
-		Query: "dentiste", Place: "75001", Languages: []string{"es"}, Page: 3,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertJSON(t, out.FilterWarnings, `[]`)
 }
 
 func TestSearchSendsUnknownLanguageCodesOnce(t *testing.T) {

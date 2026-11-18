@@ -115,7 +115,7 @@ func (t *Tools) Search(ctx context.Context, in SearchInput) (*SearchOutput, erro
 	if err != nil {
 		return nil, err
 	}
-	out.FilterWarnings = filterWarnings(in, unknown, out.Results)
+	out.FilterWarnings = filterWarnings(in, unknown, out.Total, out.Results)
 	return out, nil
 }
 

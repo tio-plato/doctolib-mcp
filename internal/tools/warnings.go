@@ -11,7 +11,7 @@ import (
 // not offer, such as video consultations for dentists. A result whose field is
 // null is counted apart, as one that cannot be checked. A free slot within N
 // days cannot be checked from the results at all.
-func filterWarnings(in SearchInput, unknown []string, results []Practitioner) []string {
+func filterWarnings(in SearchInput, unknown []string, total *int, results []Practitioner) []string {
 	warnings := []string{}
 	if len(unknown) > 0 {
 		warnings = append(warnings, fmt.Sprintf(
@@ -36,8 +36,10 @@ func filterWarnings(in SearchInput, unknown []string, results []Practitioner) []
 				return slices.Contains(in.Sectors, p.Sector.Code), true
 			})
 	}
-	// Only the first page tells a language that matched nobody; later ones may just be past the end.
-	if len(in.Languages) > 0 && in.Page == 0 && len(results) == 0 {
+	// A total of 0 means nobody matched, whatever the page; without a total only
+	// an empty first page does, since a later one may just be past the end.
+	nobody := total != nil && *total == 0 || total == nil && in.Page == 0 && len(results) == 0
+	if len(in.Languages) > 0 && nobody {
 		warnings = append(warnings, "languages: no result, so either no practitioner here who meets the other "+
 			"filters declares these languages, or the search finds nobody even without them")
 	}
