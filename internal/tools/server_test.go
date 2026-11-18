@@ -44,7 +44,8 @@ func TestToolsThroughTheSDK(t *testing.T) {
 		// other is where an "other" object must be in the structured result.
 		other func(map[string]any) any
 	}{
-		{"search_practitioners", map[string]any{"query": "dentiste", "place": "75001", "languages": []string{"en"}},
+		{"search_practitioners", map[string]any{"query": "dentiste", "place": "75001", "languages": []string{"en"},
+			"telehealth": true, "sectors": []string{"contracted_2"}, "available_within_days": 7},
 			func(m map[string]any) any { return m["results"].([]any)[0].(map[string]any)["other"] }},
 		{"practitioner_profile", map[string]any{"profile_url": e.base + "/dentiste/paris/ada-example"},
 			func(m map[string]any) any { return m["other"] }},

@@ -448,3 +448,19 @@ func TestSearchWarnsWhenNobodySpeaksTheLanguage(t *testing.T) {
 		t.Errorf("warnings %q, want one about no result", out.FilterWarnings)
 	}
 }
+
+func TestSearchLabelsUnknownSectorWithNull(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	body := strings.Replace(string(readFile(t, "search.json")), `"regulationSector": "contracted",`,
+		`"regulationSector": "testOnlyUnknownSector",`, 1)
+	e.fake.handle(searchPath, func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusPartialContent, body)
+	})
+
+	out, err := e.tools.Search(t.Context(), tools.SearchInput{Query: "dentiste", Place: "75001"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertJSON(t, out.Results[0].Sector, `{"code": "testOnlyUnknownSector", "label": null}`)
+}
