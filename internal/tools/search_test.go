@@ -65,6 +65,7 @@ func TestSearchOrganisesResults(t *testing.T) {
 		t.Errorf("paging: total %v, page %d, page_size %d, has_more %v", out.Total, out.Page, out.PageSize, out.HasMore)
 	}
 	assertJSON(t, out.Other, `{"testOnlyTopLevel": {"kept": true}}`)
+	assertJSON(t, out.FilterWarnings, `[]`)
 	if len(out.Results) != 4 {
 		t.Fatalf("got %d results, want 4", len(out.Results))
 	}
@@ -341,5 +342,44 @@ func TestSearchRefusesDoctolibOwnLanguageCodes(t *testing.T) {
 				t.Errorf("sent %d Doctolib requests", n)
 			}
 		})
+	}
+}
+
+func TestSearchWarnsAboutFiltersDoctolibIgnored(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+
+	// In search.json, telehealth is true, false, null and false; languages are [gb fr zz], [fr], [fr] and [es];
+	// sectors are contracted, organization_contracted, null and contracted.
+	out, err := e.tools.Search(t.Context(), tools.SearchInput{
+		Query: "dentiste", Place: "75001", Telehealth: true, Languages: []string{"fr", "qq"},
+		Sectors: []string{"contracted", "organization_contracted"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var body struct {
+		Filters struct {
+			Languages []string `json:"languages"`
+		} `json:"filters"`
+	}
+	err = json.Unmarshal(e.fake.doctolibRequests()[0].Body, &body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertJSON(t, body.Filters.Languages, `["fr", "qq"]`)
+
+	warnings := strings.Join(out.FilterWarnings, "\n")
+	if len(out.FilterWarnings) != 3 {
+		t.Fatalf("got %d warnings, want 3:\n%s", len(out.FilterWarnings), warnings)
+	}
+	for _, want := range []string{"does not know qq", "telehealth: 2 of 4", "1 could not be checked", "languages: 1 of 4"} {
+		if !strings.Contains(warnings, want) {
+			t.Errorf("warnings lack %q:\n%s", want, warnings)
+		}
+	}
+	if strings.Contains(warnings, "sectors") {
+		t.Errorf("warned about sectors, which every result that has one matches:\n%s", warnings)
 	}
 }

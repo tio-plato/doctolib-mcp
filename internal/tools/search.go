@@ -37,13 +37,15 @@ type SearchInput struct {
 type SearchOutput struct {
 	Place place.Place `json:"place"`
 	// SearchedLocation is Doctolib's search point, or the centre of the box when Doctolib gives none.
-	SearchedLocation place.Point    `json:"searched_location"`
-	Total            *int           `json:"total"`
-	Page             int            `json:"page"`
-	PageSize         int            `json:"page_size"`
-	HasMore          bool           `json:"has_more"`
-	Results          []Practitioner `json:"results"`
-	Other            map[string]any `json:"other"`
+	SearchedLocation place.Point `json:"searched_location"`
+	Total            *int        `json:"total"`
+	Page             int         `json:"page"`
+	PageSize         int         `json:"page_size"`
+	HasMore          bool        `json:"has_more"`
+	// FilterWarnings names the filters this page shows Doctolib did not apply.
+	FilterWarnings []string       `json:"filter_warnings"`
+	Results        []Practitioner `json:"results"`
+	Other          map[string]any `json:"other"`
 }
 
 // Practitioner is one search result: a practitioner or an organisation at one practice.
@@ -100,7 +102,7 @@ func (t *Tools) Search(ctx context.Context, in SearchInput) (*SearchOutput, erro
 	if err != nil {
 		return nil, fmt.Errorf("resolve place: %w", err)
 	}
-	codes, _, err := doctolibLanguages(in.Languages)
+	codes, unknown, err := doctolibLanguages(in.Languages)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +111,12 @@ func (t *Tools) Search(ctx context.Context, in SearchInput) (*SearchOutput, erro
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
-	return organiseSearch(raw, plc, in.Page, t.doctolib.BaseURL())
+	out, err := organiseSearch(raw, plc, in.Page, t.doctolib.BaseURL())
+	if err != nil {
+		return nil, err
+	}
+	out.FilterWarnings = filterWarnings(in, unknown, out.Results)
+	return out, nil
 }
 
 type latLng struct {
@@ -189,7 +196,7 @@ func organiseSearch(raw []byte, plc place.Place, page int, base string) (*Search
 	}
 	out := &SearchOutput{
 		Place: plc, SearchedLocation: plc.BBox.Centre(), Total: nil, Page: page, PageSize: pageSize,
-		HasMore: false, Results: []Practitioner{}, Other: nil,
+		HasMore: false, FilterWarnings: []string{}, Results: []Practitioner{}, Other: nil,
 	}
 	if loc := top.sub("searchedLocation"); loc != nil {
 		var lat, lng *float64

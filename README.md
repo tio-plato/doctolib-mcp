@@ -32,8 +32,14 @@ Its table holds the 71 codes Doctolib filters on, found by searching with every 
 country code. The French labels of 33 of them come from Doctolib itself, its filter panel or practitioners' public
 pages; the other 38 are inferred from codes whose meaning is plain. A code that is Doctolib's own spelling of another
 language is refused (`gb`; `la`, Latin in ISO, is Lao on Doctolib), and an ISO code missing from the table is sent as
-it is. Each language of a result carries Doctolib's code, the ISO code, the English name and the
+it is, with a warning. Each language of a result carries Doctolib's code, the ISO code, the English name and the
 French label; regulation sectors carry the label of Doctolib's filter panel.
+
+### Filters Doctolib ignores
+
+Doctolib silently ignores a filter a speciality does not offer, such as video consultations for dentists. The server
+checks each result against the filters asked for and names, in `filter_warnings`, any filter the page shows was not
+applied.
 
 ### What the server infers
 
