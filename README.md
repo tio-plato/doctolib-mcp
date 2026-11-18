@@ -133,3 +133,8 @@ nix flake check   # build, tests, golangci-lint
 ```
 
 Tests run against a local fake server with hand-written fixtures; they never reach Doctolib.
+
+## License
+
+[MIT](LICENSE). `.golangci.yml` is copied from
+[maratori/golangci-lint-config](https://github.com/maratori/golangci-lint-config) and keeps its own MIT notice.
