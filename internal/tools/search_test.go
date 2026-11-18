@@ -447,6 +447,15 @@ func TestSearchWarnsWhenNobodySpeaksTheLanguage(t *testing.T) {
 	if len(out.FilterWarnings) != 1 || !strings.Contains(out.FilterWarnings[0], "no result") {
 		t.Errorf("warnings %q, want one about no result", out.FilterWarnings)
 	}
+
+	// Past the last page an empty page says nothing about the languages.
+	out, err = e.tools.Search(t.Context(), tools.SearchInput{
+		Query: "dentiste", Place: "75001", Languages: []string{"es"}, Page: 3,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertJSON(t, out.FilterWarnings, `[]`)
 }
 
 func TestSearchLabelsUnknownSectorWithNull(t *testing.T) {

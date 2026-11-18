@@ -36,9 +36,10 @@ func filterWarnings(in SearchInput, unknown []string, results []Practitioner) []
 				return slices.Contains(in.Sectors, p.Sector.Code), true
 			})
 	}
-	if len(in.Languages) > 0 && len(results) == 0 {
-		warnings = append(warnings,
-			"languages: no result, so no practitioner here who meets the other filters declares these languages")
+	// Only the first page tells a language that matched nobody; later ones may just be past the end.
+	if len(in.Languages) > 0 && in.Page == 0 && len(results) == 0 {
+		warnings = append(warnings, "languages: no result, so either no practitioner here who meets the other "+
+			"filters declares these languages, or the search finds nobody even without them")
 	}
 	if len(in.Languages) > 0 {
 		warnings = appendCheck(warnings, results, "languages", "speak none of the requested languages",
