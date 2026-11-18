@@ -54,7 +54,7 @@ func NewServer(t *Tools, version string) (*mcp.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	mcp.AddTool(server, tool("search_practitioners", searchDescription(), searchIn, searchOut), handler(t.Search))
+	mcp.AddTool(server, tool("search_practitioners", searchDescription, searchIn, searchOut), handler(t.Search))
 
 	profileIn, err := schemaFor[ProfileInput]()
 	if err != nil {
@@ -171,41 +171,35 @@ func toAny(ss []string) []any {
 	return out
 }
 
-const blockedRule = `If a tool error starts with "blocked": stop, tell the user the error as it is, ` +
-	"do not retry, and do not reach Doctolib through a browser or any other way. " +
-	`If it starts with "budget": tell the user when requests resume and do not try another way.`
+const blockedRule = `If a tool error starts with "blocked": stop, show the user the error as it is, ` +
+	"and don't retry or reach Doctolib any other way, browser included. " +
+	`If it starts with "budget": tell the user when requests resume and don't try another way.`
 
-func searchDescription() string {
-	return `Doctolib (France): search practitioners near a French postcode or town.
-Read-only and anonymous, doctolib.fr only. It never books: give the user a result's profile_url, where they book themselves.
-Doctolib orders results by distance and does not keep them inside the area. Each result has distance_km, the straight-line distance from searched_location (Doctolib's search point), and in_area, true when its postcode is one of place.postcodes; place is what the postcode or name resolved to.
-Pages start at 0, 20 results each; has_more tells whether another page exists.
-Filters: languages, as ISO 639 codes, which the server turns into Doctolib's own codes; telehealth, for practitioners who offer video consultations (Doctolib offers it only for specialities that have them, not for dentists); sectors, regulation sector codes as in sector.code, from the set the speciality uses (doctors: contracted_1, contracted_1_with_extra, contracted_1_with_optam, contracted_1_with_optam_co, contracted_2, contracted_2_with_optam, contracted_2_with_optam_co, non_contracted; dentists and similar: contracted, contracted_with_extra; organisations: organization_contracted, organization_non_contracted); available_within_days, 1 (today), 3, 7 or 14.
-Doctolib silently ignores a filter a speciality does not offer. filter_warnings names any filter the results show it may not have applied, a language filter that matched nobody, and a language code the server had to send as it is; read it before trusting a filtered page. available_within_days cannot be checked from the results: the availability tool shows the actual slots.
-Pass a result's availability_query to the availability tool (up to 20 in one call, one page of results) and its profile_url to practitioner_profile. availability_query is null when the result cannot be booked online (bookable_online false).
-allow_new_patients is Doctolib's flag on matched_motive, copied as it is: false is inferred to mean that motive does not take new patients. It is not a verdict; judge with practitioner_profile and availability.
-sector is the regulation sector (secteur) with Doctolib's French label. Each of languages has Doctolib's code, the ISO 639 code, the English name and the French label; they are null for a code the server does not know.
-Languages the server knows (ISO 639 code and name): ` + languageList() + `. The French labels are Doctolib's own.
-other holds every Doctolib field the server did not organise, under its original name.
+const searchDescription = `Doctolib (France): search practitioners near a French postcode or town.
+Read-only, doctolib.fr only. It never books: give the user a result's profile_url to book there.
+Results are sorted by distance and can lie outside the area. distance_km is the straight-line distance from searched_location; in_area is true when the result's postcode is one of place.postcodes.
+Doctolib silently ignores a filter the speciality doesn't offer, such as telehealth for dentists, so read filter_warnings before trusting a filtered page. available_within_days can't be checked from the results; the availability tool shows the actual slots.
+Pass a result's availability_query to availability and its profile_url to practitioner_profile. availability_query is null when the result can't be booked online (bookable_online false).
+allow_new_patients is Doctolib's flag on matched_motive. false probably means that motive takes no new patients (inferred, not verified). It isn't a verdict: check practitioner_profile and availability.
+other holds the Doctolib fields the server doesn't map, under their original names.
 ` + blockedRule
-}
 
 const profileDescription = `Doctolib (France): visit motives, places and agendas of one practitioner.
-Read-only and anonymous, doctolib.fr only; one Doctolib request.
-Each motive lists in offered every (practice, agenda) that offers it, with the agenda's practitioner and an availability_query ready for the availability tool.
-New patients: the server draws no conclusion. new_patient_restrictions on a motive is Doctolib's value as it is; each offered entry copies the entries that name its agenda. Inferred, not verified: an entry names agendas that take only existing patients for that motive. Some practitioners open a motive to existing patients only, or a new-patient motive shows no slot or only far ones: judge together with the availability results.
-unavailable_agendas have booking temporarily disabled; they are not in offered.
-places[].phone is the practice's landline, for practitioners who cannot be booked online.
-other holds every Doctolib field the server did not organise, under its original name.
+Read-only, doctolib.fr only; one Doctolib request.
+Each motive's offered lists every (practice, agenda) that offers it, with the agenda's practitioner and an availability_query for the availability tool.
+New patients: the server draws no conclusion. A motive's new_patient_restrictions is Doctolib's raw value, and each offered entry gets the entries that name its agenda. An entry probably lists agendas that take only existing patients for that motive (inferred, not verified). Judge together with availability: some motives are for existing patients only, and some new-patient motives have no slots or only distant ones.
+unavailable_agendas have booking temporarily disabled (inferred) and are not in offered.
+places[].phone is the practice's landline, for practitioners who can't be booked online.
+other holds the Doctolib fields the server doesn't map, under their original names.
 ` + blockedRule
 
 const availabilityDescription = `Doctolib (France): free slots and earliest slot for up to 20 practitioners.
-Read-only and anonymous, doctolib.fr only. Takes 1 to 20 availability_query objects, one page of search results, and sends one Doctolib request for each, one after another. If a question needs more than one page of practitioners checked, ask the user first. Booking is the user's: give them the profile_url.
-Each result covers 15 days from start_date (window, both ends included). status, first rule that matches:
+Read-only, doctolib.fr only. Sends one Doctolib request per query, in turn. Ask the user before checking more than one page of practitioners for one question. Booking is the user's: give them the profile_url.
+Each result covers 15 days from start_date (window, both ends included). status is the first of these that applies:
 - has_slots: free slots in the window;
-- not_opened: no slot in the window and Doctolib says the slots are not opened yet (reason not_opened_availability);
-- next_slot_known: no slot in the window, but Doctolib gives the next slot after it (if its format cannot be read, earliest is null and other.next_slot holds it);
-- none_visible: no slot in the window and no next slot. It means no bookable slot can be seen, not that the practitioner is fully booked: never say fully booked.
-earliest is the first slot in the window (source window); when the window has no slot, Doctolib's next slot (source next_slot; time is null when Doctolib gives only a date); else null. slots lists the days with free times, in the local time Doctolib writes them in (Paris time for mainland France); other.availabilities keeps the full ISO times. A slot in a shape the server does not know counts in slot_count but is not listed.
-A query that fails has status error and an error text; the others go on. A block or a reached cap stops the call, and the error carries the results already fetched.
+- not_opened: no slot, and Doctolib says slots aren't open yet (reason not_opened_availability);
+- next_slot_known: no slot in the window, but Doctolib gives the next one after it (if that can't be read, earliest is null and other.next_slot holds it);
+- none_visible: no slot in the window and no next slot. No bookable slot can be seen, which doesn't mean fully booked: never say fully booked.
+earliest is the first slot in the window (source window); when the window has no slot at all, Doctolib's next slot (source next_slot; time is null when Doctolib gives only a date); else null. slots lists the days with free times, in Doctolib's local time (Paris for mainland France); other.availabilities keeps the full ISO times. A slot in an unknown shape counts in slot_count but isn't listed.
+A failed query gets status error and an error text; the others go on. A block or a reached cap stops the call, and the error carries the results already fetched.
 ` + blockedRule

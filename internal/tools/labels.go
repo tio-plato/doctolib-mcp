@@ -189,12 +189,3 @@ func doctolibLanguages(isos []string) ([]string, []string, error) {
 	}
 	return codes, unknown, nil
 }
-
-// languageList is the ISO codes and names for the tool description.
-func languageList() string {
-	parts := make([]string, 0, len(languages()))
-	for _, l := range languages() {
-		parts = append(parts, l.iso+" "+l.name)
-	}
-	return strings.Join(parts, ", ")
-}

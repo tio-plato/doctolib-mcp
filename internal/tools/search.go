@@ -23,13 +23,13 @@ const (
 
 // SearchInput is the input of search_practitioners.
 type SearchInput struct {
-	Query     string   `json:"query"               jsonschema:"speciality or keyword, e.g. dentiste, dermatologue, kinesitherapeute, or a practitioner's name"`
-	Place     string   `json:"place"               jsonschema:"5-digit French postcode, or commune name such as Lyon or Saint-Étienne. Postcodes of Paris, Lyon and Marseille resolve to their arrondissement, the names to the whole city"`
-	Languages []string `json:"languages,omitempty" jsonschema:"ISO 639 language codes (en, es, de...); the server turns them into Doctolib's codes, and Doctolib keeps practitioners who speak one of them"`
+	Query     string   `json:"query"               jsonschema:"speciality, keyword or practitioner name, e.g. dentiste"`
+	Place     string   `json:"place"               jsonschema:"5-digit French postcode or commune name. In Paris, Lyon and Marseille a postcode means its arrondissement, the name the whole city"`
+	Languages []string `json:"languages,omitempty" jsonschema:"ISO 639 codes, e.g. en or es; keeps practitioners who speak any of them"`
 	Page      int      `json:"page,omitempty"      jsonschema:"page number, from 0; 20 results a page"`
 	// The filters below passed a live check: Doctolib applied each one.
 	Telehealth          *bool    `json:"telehealth,omitempty"            jsonschema:"only practitioners who offer video consultations"`
-	Sectors             []string `json:"sectors,omitempty"               jsonschema:"regulation sectors to keep, as in the results' sector.code"`
+	Sectors             []string `json:"sectors,omitempty"               jsonschema:"regulation sectors to keep, as in the results' sector.code. Doctors use contracted_1*, contracted_2* and non_contracted; dentists and similar contracted and contracted_with_extra; organisations organization_*"`
 	AvailableWithinDays *int     `json:"available_within_days,omitempty" jsonschema:"only practitioners with a free slot within this many days: 1 (today), 3, 7 or 14"`
 }
 
