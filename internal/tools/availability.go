@@ -447,8 +447,7 @@ func (b byDay) String() string {
 // merged writes the times in order, without repeats. From the earliest time not yet written, greedily: a run of at
 // least minRun times at the same step becomes first-last/step, both ends included; otherwise the first time alone.
 func (d *dayTimes) merged() string {
-	slices.Sort(d.minutes)
-	m := slices.Compact(d.minutes)
+	m := slices.Compact(slices.Sorted(slices.Values(d.minutes)))
 	parts := make([]string, 0, len(m))
 	for i := 0; i < len(m); {
 		n := runLength(m[i:])
