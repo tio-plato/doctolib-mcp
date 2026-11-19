@@ -167,9 +167,12 @@ func organiseAvailability(raw []byte, q AvailabilityQuery) AvailabilityResult {
 	}
 	r := AvailabilityResult{Query: q, Status: "", Earliest: nil, Reason: nil, Error: ""}
 
-	// other.availabilities keeps only what slots and substitution don't show. Not an array, it stays whole.
+	// other.availabilities keeps only what slots and substitution don't show. Not an array, null included, it stays
+	// whole.
 	var days []json.RawMessage
-	o.take("availabilities", &days)
+	if o.peek("availabilities", &days) && days != nil {
+		o.drop("availabilities")
+	}
 	c := collected{count: 0, first: nil, slots: byDay{}, subs: map[subKey]byDay{}}
 	var left []any
 	for _, d := range days {

@@ -241,10 +241,12 @@ func TestAvailabilityOtherKeepsWhatSlotsDoesNotShow(t *testing.T) {
 			{"date": "2026-11-17", "slots": "2026-11-17T09:50:00.000+01:00"},
 			{"date": "2026-11-18", "slots": ["2026-11-18T10:00:00.000+01:00"]},
 			"2026-11-19", null]}`),
+		// Not an array: it stays whole.
+		"3": jsonAnswer(`{"total": 0, "availabilities": null}`),
 	}))
 
 	out, err := e.tools.Availability(t.Context(), tools.AvailabilityInput{
-		Queries:   []tools.AvailabilityQuery{query(1, 1), query(2, 1)},
+		Queries:   []tools.AvailabilityQuery{query(1, 1), query(2, 1), query(3, 1)},
 		StartDate: "2026-11-17",
 	})
 	if err != nil {
@@ -260,6 +262,7 @@ func TestAvailabilityOtherKeepsWhatSlotsDoesNotShow(t *testing.T) {
 		 "some_new_flag": false, "some_count": 0, "some_note": ""}]}`)
 	assertJSON(t, out.Results[1].Other, `{"total": 2, "availabilities": [
 		{"date": "2026-11-17", "slots": "2026-11-17T09:50:00.000+01:00"}, "2026-11-19"]}`)
+	assertJSON(t, out.Results[2].Other, `{"total": 0, "availabilities": null}`)
 }
 
 func TestAvailabilityBlockedMidBatchKeepsEarlierResults(t *testing.T) {
