@@ -93,28 +93,130 @@ func TestAvailabilityStatuses(t *testing.T) {
 		"status": "has_slots",
 		"earliest": {"date": "2026-11-17", "time": "09:50", "iso": "2026-11-17T09:50:00.000+01:00", "source": "window"},
 		"slot_count": 3,
-		"slots": [{"date": "2026-11-17", "times": ["09:50", "14:00"]}, {"date": "2026-11-19", "times": ["08:30"]}],
+		"slots": "Tue 2026-11-17 09:50 14:00; Thu 2026-11-19 08:30",
 		"reason": null,
-		"other": {"total": 3, "next_slot": "2026-11-17T09:50:00.000+01:00", "availabilities": [
-			{"date": "2026-11-17", "slots": ["2026-11-17T14:00:00.000+01:00", "2026-11-17T09:50:00.000+01:00"]},
-			{"date": "2026-11-18", "slots": []},
-			{"date": "2026-11-19", "slots": [{"start_date": "2026-11-19T08:30:00.000+01:00", "steps": []}]}]}}`)
+		"other": {"total": 3, "next_slot": "2026-11-17T09:50:00.000+01:00"}}`)
 	assertJSON(t, out.Results[1], `{"query": {"visit_motive_id": 2, "agenda_ids": [1], "practice_id": 2001},
 		"status": "not_opened",
 		"earliest": {"date": "2027-01-12", "time": "10:00", "iso": "2027-01-12T10:00:00.000+01:00", "source": "next_slot"},
-		"slot_count": 0, "slots": [], "reason": "not_opened_availability",
-		"other": {"total": 0, "availabilities": [{"date": "2026-11-17", "slots": []}]}}`)
+		"slot_count": 0, "slots": "", "reason": "not_opened_availability",
+		"other": {"total": 0}}`)
 	assertJSON(t, out.Results[2], `{"query": {"visit_motive_id": 3, "agenda_ids": [1], "practice_id": 2001},
 		"status": "next_slot_known",
 		"earliest": {"date": "2027-01-26", "time": "09:50", "iso": "2027-01-26T09:50:00.000+01:00", "source": "next_slot"},
-		"slot_count": 0, "slots": [], "reason": null,
-		"other": {"total": 0, "availabilities": [{"date": "2026-11-17", "slots": []}]}}`)
+		"slot_count": 0, "slots": "", "reason": null,
+		"other": {"total": 0}}`)
 	assertJSON(t, out.Results[3], `{"query": {"visit_motive_id": 4, "agenda_ids": [1], "practice_id": 2001},
-		"status": "none_visible", "earliest": null, "slot_count": 0, "slots": [], "reason": null,
-		"other": {"total": 0, "availabilities": [{"date": "2026-11-17", "slots": []}]}}`)
+		"status": "none_visible", "earliest": null, "slot_count": 0, "slots": "", "reason": null,
+		"other": {"total": 0}}`)
 	if r := out.Results[4]; r.Status != tools.StatusNoneVisible || r.Reason == nil || *r.Reason != "some_new_reason" {
 		t.Errorf("unknown reason: status %q, reason %v", r.Status, r.Reason)
 	}
+}
+
+func TestAvailabilitySlotsFormat(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.fake.handle(availabilityPath, availabilityByMotive(map[string]func(http.ResponseWriter){
+		"1": jsonAnswer(`{"total": 13, "availabilities": [
+			{"date": "2026-11-17", "slots": [
+				"2026-11-17T09:20:00.000+01:00", "2026-11-17T09:00:00.000+01:00", "2026-11-17T09:10:00.000+01:00",
+				"2026-11-17T09:30:00.000+01:00", "2026-11-17T09:30:00.000+01:00", "2026-11-17T10:00:00.000+01:00",
+				"2026-11-17T14:00:00.000+01:00", "2026-11-17T14:20:00.000+01:00", "2026-11-17T14:40:00.000+01:00",
+				"2026-11-17T16:05:00.000+01:00"]},
+			{"date": "2026-11-18", "slots": [
+				"2026-11-18T00:30:00.000+01:00", "2026-11-18T08:15:00.000+01:00", "2026-11-18T09:15:00.000+01:00"]}]}`),
+	}))
+
+	out, err := e.tools.Availability(t.Context(), tools.AvailabilityInput{
+		Queries:   []tools.AvailabilityQuery{query(1, 1)},
+		StartDate: "2026-11-17",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 00:30 in Paris is still 17 November in UTC: the day and weekday come from the time as Doctolib writes it.
+	r := out.Results[0]
+	assertJSON(t, r.SlotCount, `13`)
+	assertJSON(
+		t,
+		r.Slots,
+		`"Tue 2026-11-17 09:00-09:30/10 10:00 14:00-14:40/20 16:05; Wed 2026-11-18 00:30 08:15 09:15"`,
+	)
+}
+
+func TestAvailabilitySubstitution(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.fake.handle(availabilityPath, availabilityByMotive(map[string]func(http.ResponseWriter){
+		"1": jsonAnswer(`{"total": 3, "availabilities": [
+			{"date": "2026-11-17", "slots": [
+				"2026-11-17T10:00:00.000+01:00", "2026-11-17T10:10:00.000+01:00", "2026-11-17T10:20:00.000+01:00"],
+			 "substitution": {
+				"Dr. Bo EXAMPLE": {"slots": ["2026-11-17T10:20:00.000+01:00"], "status": "collaborator"},
+				"Dr. Ada EXAMPLE": {"slots": ["2026-11-17T10:00:00.000+01:00", "2026-11-17T10:10:00.000+01:00"],
+					"status": "substitute"}}},
+			{"date": "2026-11-18", "slots": [],
+			 "substitution": {"Dr. Cy EXAMPLE": {"slots": "2026-11-18T09:00:00.000+01:00", "status": "substitute"}}}]}`),
+	}))
+
+	out, err := e.tools.Availability(t.Context(), tools.AvailabilityInput{
+		Queries:   []tools.AvailabilityQuery{query(1, 1)},
+		StartDate: "2026-11-17",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A substitution in another shape stays in other as Doctolib gives it.
+	assertJSON(t, out.Results[0], `{"query": {"visit_motive_id": 1, "agenda_ids": [1], "practice_id": 2001},
+		"status": "has_slots",
+		"earliest": {"date": "2026-11-17", "time": "10:00", "iso": "2026-11-17T10:00:00.000+01:00", "source": "window"},
+		"slot_count": 3, "slots": "Tue 2026-11-17 10:00-10:20/10",
+		"substitution": [
+			{"day": "Tue 2026-11-17", "practitioner": "Dr. Ada EXAMPLE", "status": "substitute", "times": "10:00 10:10"},
+			{"day": "Tue 2026-11-17", "practitioner": "Dr. Bo EXAMPLE", "status": "collaborator", "times": "10:20"}],
+		"reason": null,
+		"other": {"total": 3, "availabilities": [{"date": "2026-11-18",
+			"substitution": {"Dr. Cy EXAMPLE": {"slots": "2026-11-18T09:00:00.000+01:00", "status": "substitute"}}}]}}`)
+}
+
+func TestAvailabilityOtherKeepsWhatSlotsDoesNotShow(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.fake.handle(availabilityPath, availabilityByMotive(map[string]func(http.ResponseWriter){
+		"1": jsonAnswer(`{"total": 2, "availabilities": [
+			{"date": "2026-11-17", "slots": [
+				"2026-11-17T09:50:00.000+01:00",
+				{"start_date": "2026-11-17T12:00:00.000+01:00", "end_date": "2026-11-17T12:15:00.000+01:00",
+				 "steps": [{"start_date": "2026-11-17T12:00:00.000+01:00"}, {"start_date": "2026-12-15T12:00:00.000+01:00"}]}],
+			 "substitution": null, "appointment_request_slots": []},
+			{"date": "2026-11-18", "slots": [],
+			 "appointment_request_slots": [{"start_date": "2026-11-18T09:00:00.000+01:00"}], "some_new_flag": false}]}`),
+		// The first day's slots can't be read; the second day is fine; the third isn't an object.
+		"2": jsonAnswer(`{"total": 2, "availabilities": [
+			{"date": "2026-11-17", "slots": "2026-11-17T09:50:00.000+01:00"},
+			{"date": "2026-11-18", "slots": ["2026-11-18T10:00:00.000+01:00"]},
+			"2026-11-19", null]}`),
+	}))
+
+	out, err := e.tools.Availability(t.Context(), tools.AvailabilityInput{
+		Queries:   []tools.AvailabilityQuery{query(1, 1), query(2, 1)},
+		StartDate: "2026-11-17",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertJSON(t, out.Results[0].Other, `{"total": 2, "availabilities": [
+		{"date": "2026-11-17", "slots": [
+			{"start_date": "2026-11-17T12:00:00.000+01:00", "end_date": "2026-11-17T12:15:00.000+01:00",
+			 "steps": [{"start_date": "2026-11-17T12:00:00.000+01:00"}, {"start_date": "2026-12-15T12:00:00.000+01:00"}]}]},
+		{"date": "2026-11-18",
+		 "appointment_request_slots": [{"start_date": "2026-11-18T09:00:00.000+01:00"}], "some_new_flag": false}]}`)
+	assertJSON(t, out.Results[1].Other, `{"total": 2, "availabilities": [
+		{"date": "2026-11-17", "slots": "2026-11-17T09:50:00.000+01:00"}, "2026-11-19"]}`)
 }
 
 func TestAvailabilityBlockedMidBatchKeepsEarlierResults(t *testing.T) {
@@ -193,6 +295,9 @@ func TestAvailabilityOddSlotFormats(t *testing.T) {
 		t.Errorf("unknown slot shape: status %q, earliest %+v", r.Status, r.Earliest)
 	}
 	assertJSON(t, r.SlotCount, `1`)
+	// slots can't list it, so other is the only place it shows.
+	assertJSON(t, r.Other, `{"total": 1, "next_slot": "2027-01-12T10:00:00.000+01:00",
+		"availabilities": [{"date": "2026-11-18", "slots": [{"start": "09:00"}]}]}`)
 }
 
 func TestAvailabilityNextSlotOfAnotherType(t *testing.T) {

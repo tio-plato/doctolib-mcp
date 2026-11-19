@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -47,14 +48,15 @@ type Window struct {
 }
 
 type AvailabilityResult struct {
-	Query     AvailabilityQuery `json:"query"`
-	Status    string            `json:"status"`
-	Earliest  *Earliest         `json:"earliest"`
-	SlotCount *int              `json:"slot_count,omitzero"`
-	Slots     []Day             `json:"slots,omitzero"`
-	Reason    *string           `json:"reason"`
-	Other     map[string]any    `json:"other,omitzero"`
-	Error     string            `json:"error,omitempty"`
+	Query        AvailabilityQuery `json:"query"`
+	Status       string            `json:"status"`
+	Earliest     *Earliest         `json:"earliest"`
+	SlotCount    *int              `json:"slot_count,omitzero"`
+	Slots        string            `json:"slots"`
+	Substitution []Substitution    `json:"substitution,omitempty"`
+	Reason       *string           `json:"reason"`
+	Other        map[string]any    `json:"other,omitzero"`
+	Error        string            `json:"error,omitempty"`
 }
 
 type Earliest struct {
@@ -64,9 +66,12 @@ type Earliest struct {
 	Source string  `json:"source"`
 }
 
-type Day struct {
-	Date  string   `json:"date"`
-	Times []string `json:"times"`
+// Substitution is one day's times that Doctolib marks for another practitioner.
+type Substitution struct {
+	Day          string `json:"day"`
+	Practitioner string `json:"practitioner"`
+	Status       string `json:"status"`
+	Times        string `json:"times"`
 }
 
 // partialError carries the results fetched before a block or a reached cap.
@@ -145,8 +150,8 @@ func availabilityParams(start string, q AvailabilityQuery) string {
 
 func failed(q AvailabilityQuery, err error) AvailabilityResult {
 	return AvailabilityResult{
-		Query: q, Status: StatusError, Earliest: nil, SlotCount: nil, Slots: nil, Reason: nil, Other: nil,
-		Error: err.Error(),
+		Query: q, Status: StatusError, Earliest: nil, SlotCount: nil, Slots: "", Substitution: nil, Reason: nil,
+		Other: nil, Error: err.Error(),
 	}
 }
 
@@ -162,34 +167,20 @@ func organiseAvailability(raw []byte, q AvailabilityQuery) AvailabilityResult {
 	}
 	r := AvailabilityResult{Query: q, Status: "", Earliest: nil, Reason: nil, Error: ""}
 
-	// The days stay whole in other.availabilities, with the full ISO times.
-	var days []struct {
-		Slots []json.RawMessage `json:"slots"`
-	}
-	o.peek("availabilities", &days)
-	count := 0
-	var first *slot
-	times := map[string][]string{}
+	// other.availabilities keeps only what slots and substitution don't show. Not an array, it stays whole.
+	var days []json.RawMessage
+	o.take("availabilities", &days)
+	c := collected{count: 0, first: nil, slots: byDay{}, subs: map[subKey]byDay{}}
+	var left []any
 	for _, d := range days {
-		for _, raw := range d.Slots {
-			count++
-			s, ok := parseSlot(raw)
-			if !ok {
-				continue
-			}
-			date := s.at.Format(dateLayout)
-			times[date] = append(times[date], s.at.Format("15:04"))
-			if first == nil || s.at.Before(first.at) {
-				first = &s
-			}
+		if l := c.day(d); l != nil {
+			left = append(left, l)
 		}
 	}
+	count, first := c.count, c.first
 	r.SlotCount = &count
-	r.Slots = make([]Day, 0, len(times))
-	for _, date := range slices.Sorted(maps.Keys(times)) {
-		slices.Sort(times[date])
-		r.Slots = append(r.Slots, Day{Date: date, Times: times[date]})
-	}
+	r.Slots = c.slots.String()
+	r.Substitution = c.substitution()
 
 	o.take("reason", &r.Reason)
 	// A next_slot of any type counts as given; only a string can be read.
@@ -219,7 +210,270 @@ func organiseAvailability(raw []byte, q AvailabilityQuery) AvailabilityResult {
 		}
 	}
 	r.Other = o.rest()
+	if len(left) > 0 {
+		r.Other["availabilities"] = left
+	}
 	return r
+}
+
+// collected gathers what slots and substitution show, across the days.
+type collected struct {
+	count int
+	first *slot
+	slots byDay
+	subs  map[subKey]byDay
+}
+
+type subKey struct {
+	practitioner string
+	status       string
+}
+
+// day returns what slots and substitution don't show of one day, or nil when nothing but its date is left.
+func (c *collected) day(raw json.RawMessage) any {
+	d := parseObject(raw)
+	if d == nil {
+		if string(raw) == "null" {
+			return nil
+		}
+		return raw
+	}
+	var slots, unshown []json.RawMessage
+	// Slots that aren't an array stay in the day, uncounted.
+	if d.take("slots", &slots) {
+		unshown = c.addSlots(slots)
+	}
+	var sub json.RawMessage
+	if d.peek("substitution", &sub) && c.addSubstitution(sub) {
+		d.drop("substitution")
+	}
+	left := map[string]any{}
+	for k, v := range d.fields {
+		if !empty(v) {
+			left[k] = v
+		}
+	}
+	if len(unshown) > 0 {
+		left["slots"] = unshown
+	}
+	n := len(left)
+	if _, ok := left["date"]; ok {
+		n--
+	}
+	if n == 0 {
+		return nil
+	}
+	return left
+}
+
+// addSlots counts and lists a day's slots, and returns those slots doesn't show in full.
+func (c *collected) addSlots(slots []json.RawMessage) []json.RawMessage {
+	var unshown []json.RawMessage
+	for _, raw := range slots {
+		c.count++
+		s, ok := parseSlot(raw)
+		if ok {
+			c.slots.add(s.at)
+			if c.first == nil || s.at.Before(c.first.at) {
+				c.first = &s
+			}
+		}
+		if !ok || !onlyTime(raw) {
+			unshown = append(unshown, raw)
+		}
+	}
+	return unshown
+}
+
+// onlyTime is true for an ISO string, and for an object whose fields other than start_date are all empty.
+func onlyTime(raw json.RawMessage) bool {
+	var iso string
+	if json.Unmarshal(raw, &iso) == nil {
+		return true
+	}
+	o := parseObject(raw)
+	if o == nil {
+		return false
+	}
+	o.drop("start_date")
+	for _, v := range o.fields {
+		if !empty(v) {
+			return false
+		}
+	}
+	return true
+}
+
+// empty is true for null, [] and {}; false, 0 and "" are values.
+func empty(raw json.RawMessage) bool {
+	var v any
+	if json.Unmarshal(raw, &v) != nil {
+		return false
+	}
+	switch v := v.(type) {
+	case nil:
+		return true
+	case []any:
+		return len(v) == 0
+	case map[string]any:
+		return len(v) == 0
+	default:
+		return false
+	}
+}
+
+// addSubstitution takes a day's substitution only when every entry has the shape seen on Doctolib,
+// {"<practitioner>": {"slots": [ISO time…], "status": "…"}}, and reports whether it did.
+func (c *collected) addSubstitution(raw json.RawMessage) bool {
+	var byName map[string]json.RawMessage
+	if json.Unmarshal(raw, &byName) != nil || byName == nil {
+		return false
+	}
+	type entry struct {
+		key subKey
+		ats []time.Time
+	}
+	entries := make([]entry, 0, len(byName))
+	for name, v := range byName {
+		ats, status, ok := substitutionEntry(v)
+		if !ok {
+			return false
+		}
+		entries = append(entries, entry{key: subKey{practitioner: name, status: status}, ats: ats})
+	}
+	for _, e := range entries {
+		if c.subs[e.key] == nil {
+			c.subs[e.key] = byDay{}
+		}
+		for _, at := range e.ats {
+			c.subs[e.key].add(at)
+		}
+	}
+	return true
+}
+
+// substitutionEntry reads {"slots": [ISO time…], "status": "…"}, with no other field.
+func substitutionEntry(raw json.RawMessage) ([]time.Time, string, bool) {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(raw, &fields) != nil || len(fields) != 2 {
+		return nil, "", false
+	}
+	// Pointers, so that null or a missing field isn't read as an empty value.
+	var isos *[]string
+	var status *string
+	if json.Unmarshal(fields["slots"], &isos) != nil || isos == nil ||
+		json.Unmarshal(fields["status"], &status) != nil || status == nil {
+		return nil, "", false
+	}
+	ats := make([]time.Time, 0, len(*isos))
+	for _, iso := range *isos {
+		at, err := time.Parse(time.RFC3339, iso)
+		if err != nil {
+			return nil, "", false
+		}
+		ats = append(ats, at)
+	}
+	return ats, *status, true
+}
+
+// substitution lists one entry per day and practitioner, by date, then practitioner.
+func (c *collected) substitution() []Substitution {
+	type dated struct {
+		date string
+		sub  Substitution
+	}
+	var all []dated
+	for k, days := range c.subs {
+		for _, d := range days {
+			all = append(all, dated{date: d.date, sub: Substitution{
+				Day: d.label, Practitioner: k.practitioner, Status: k.status, Times: d.merged(),
+			}})
+		}
+	}
+	slices.SortFunc(all, func(a, b dated) int {
+		return cmp.Or(
+			strings.Compare(a.date, b.date),
+			strings.Compare(a.sub.Practitioner, b.sub.Practitioner),
+			strings.Compare(a.sub.Status, b.sub.Status),
+		)
+	})
+	out := make([]Substitution, 0, len(all))
+	for _, a := range all {
+		out = append(out, a.sub)
+	}
+	return out
+}
+
+const (
+	// dayLayout gives the weekday too, which models often get wrong from a date.
+	dayLayout      = "Mon 2006-01-02"
+	minutesPerHour = 60
+	// minRun is the fewest evenly spaced times written as one run.
+	minRun = 3
+)
+
+// byDay holds clock times under the date of their ISO time, in the offset Doctolib writes it in.
+type byDay map[string]*dayTimes
+
+type dayTimes struct {
+	date    string
+	label   string
+	minutes []int
+}
+
+func (b byDay) add(at time.Time) {
+	date := at.Format(dateLayout)
+	d := b[date]
+	if d == nil {
+		d = &dayTimes{date: date, label: at.Format(dayLayout), minutes: nil}
+		b[date] = d
+	}
+	d.minutes = append(d.minutes, at.Hour()*minutesPerHour+at.Minute())
+}
+
+// String writes the days in date order, separated by "; ", each as its label and its merged times.
+func (b byDay) String() string {
+	days := slices.SortedFunc(maps.Values(b), func(x, y *dayTimes) int { return strings.Compare(x.date, y.date) })
+	parts := make([]string, 0, len(days))
+	for _, d := range days {
+		parts = append(parts, d.label+" "+d.merged())
+	}
+	return strings.Join(parts, "; ")
+}
+
+// merged writes the times in order, without repeats. From the earliest time not yet written, greedily: a run of at
+// least minRun times at the same step becomes first-last/step, both ends included; otherwise the first time alone.
+func (d *dayTimes) merged() string {
+	slices.Sort(d.minutes)
+	m := slices.Compact(d.minutes)
+	parts := make([]string, 0, len(m))
+	for i := 0; i < len(m); {
+		n := runLength(m[i:])
+		if n >= minRun {
+			parts = append(parts, fmt.Sprintf("%s-%s/%d", clock(m[i]), clock(m[i+n-1]), m[i+1]-m[i]))
+			i += n
+			continue
+		}
+		parts = append(parts, clock(m[i]))
+		i++
+	}
+	return strings.Join(parts, " ")
+}
+
+// runLength counts the times from the first that keep the step between the first two.
+func runLength(m []int) int {
+	if len(m) < minRun {
+		return len(m)
+	}
+	n := 2
+	for n < len(m) && m[n]-m[n-1] == m[1]-m[0] {
+		n++
+	}
+	return n
+}
+
+func clock(minutes int) string {
+	return fmt.Sprintf("%02d:%02d", minutes/minutesPerHour, minutes%minutesPerHour)
 }
 
 // parseSlot accepts a slot as an ISO string or as an object with start_date.
