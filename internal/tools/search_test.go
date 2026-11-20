@@ -91,8 +91,8 @@ func TestSearchOrganisesResults(t *testing.T) {
 			"location": {"country": "fr", "distanceInMeters": 1000.75},
 			"references": {"id": 4001, "type": "public_profile"},
 			"services": ["profile", "onlineBooking"], "administrativeArea": [], "exactMatch": true, "gender": "female",
-			"matchedVisitMotive": {"agendaIds": [1001], "fee": null, "insuranceSector": {"split": false, "type": null}},
-			"onlineBooking": {"bookableOrganizationSpecialities": []},
+			"matchedVisitMotive": {"fee": null, "insuranceSector": {"split": false, "type": null}},
+			"onlineBooking": {"agendaIds": [1001, 1005], "bookableOrganizationSpecialities": []},
 			"organizationStatus": null, "type": "INDIVIDUAL_PRACTITIONER", "testOnlyUnknownField": "kept"
 		}}`)
 
@@ -103,7 +103,7 @@ func TestSearchOrganisesResults(t *testing.T) {
 	if org.InArea {
 		t.Error("a result in 75002 is in the 75001 area")
 	}
-	// Its onlineBooking has no agenda, so the matched motive's agendas are used.
+	// Its matched motive has no agenda, so onlineBooking's are used.
 	assertJSON(t, org.AvailabilityQuery, `{"visit_motive_id": 3002, "agenda_ids": [1002, 1003], "practice_id": 2002}`)
 
 	notBookable := out.Results[2]

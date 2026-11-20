@@ -308,12 +308,13 @@ func organiseBooking(o *object, p *Practitioner) {
 	if refs == nil || !refs.peek("practiceId", &practiceID) || practiceID == nil || motiveID == nil || online == nil {
 		return
 	}
-	// The agendas come from onlineBooking, else from the matched motive (not nil: motiveID came from it).
+	// The agendas come from the matched motive (not nil: motiveID came from it), else from onlineBooking, which lists
+	// every agenda of the speciality there: the same slots from a longer list.
 	var agendas []int64
-	from := online
-	if !online.peek("agendaIds", &agendas) || len(agendas) == 0 {
-		from = matched
-		if !matched.peek("agendaIds", &agendas) || len(agendas) == 0 {
+	from := matched
+	if !matched.peek("agendaIds", &agendas) || len(agendas) == 0 {
+		from = online
+		if !online.peek("agendaIds", &agendas) || len(agendas) == 0 {
 			return
 		}
 	}
