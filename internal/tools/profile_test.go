@@ -103,7 +103,7 @@ func TestProfileOrganisesMotivesAndAgendas(t *testing.T) {
 	// 3002: they leave the restrictions, and the entry that names only them goes.
 	assertJSON(t, out.Motives[1], motive3002)
 	assertJSON(t, out.Practitioners, `[`+practitioner5001+`,
-		{"id": 5002, "name": "Dr Bob EXAMPLE", "other": {"profile_id": 4005, "speciality": "Dentiste"}}]`)
+		{"id": 5002, "name": "Dr Bob EXAMPLE", "other": {"profile_id": 4005}}]`)
 
 	if keys := slices.Sorted(maps.Keys(out.Other)); !slices.Equal(keys, otherKeys()) {
 		t.Errorf("other has %v, want %v", keys, otherKeys())
@@ -123,9 +123,9 @@ func TestProfileMotiveIDs(t *testing.T) {
 	cs := connect(t, e)
 	profileURL := e.base + "/dentiste/paris/ada-example"
 
-	// 4242 is no motive of this profile.
+	// 4242 is no motive of this profile, and 3002 comes once.
 	got := callTool(t, cs, "practitioner_profile", map[string]any{
-		"profile_url": profileURL, "motive_ids": []int{3002, 4242},
+		"profile_url": profileURL, "motive_ids": []int{3002, 4242, 3002},
 	})
 	assertJSON(t, got["motives"], `[`+motive3002+`]`)
 	assertJSON(t, got["agendas"], `[`+agenda1001+`]`)

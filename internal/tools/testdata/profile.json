@@ -25,6 +25,7 @@
           {"age": {"age": 13, "operator": "lt", "unit": "years"}, "agenda_ids": [1001, 1003, 1099], "insurance_sector": "all"}
         ],
         "configurations": null,
+        "self_payer_restrictions": [],
         "testOnlyUnknownField": "kept"
       },
       {
@@ -64,7 +65,7 @@
     ],
     "practitioners": [
       {"id": 5001, "profile_id": 4001, "name": "EXAMPLE ", "name_with_title_and_determiner": "Dr Ada Example", "name_with_title": "Dr Ada EXAMPLE", "speciality": "Dentiste"},
-      {"id": 5002, "profile_id": 4005, "name": "EXAMPLE", "name_with_title_and_determiner": "Dr Bob Example", "name_with_title": "Dr Bob EXAMPLE", "speciality": "Dentiste"}
+      {"id": 5002, "profile_id": 4005, "name": "EXAMPLE", "name_with_title_and_determiner": "Dr Bob Example", "name_with_title": "Dr Bob EXAMPLE", "speciality": null}
     ]
   }
 }
