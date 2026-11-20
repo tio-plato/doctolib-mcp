@@ -235,6 +235,21 @@ func TestProfilePickedMotivesFitWithTheListOfTheRest(t *testing.T) {
 	}
 }
 
+// Without a motive to pick, the index is empty, but it still says the agendas were left out.
+func TestProfileIndexOfNoMotive(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.fake.handle(profilePath, func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, centre(bigAgendas(), nil))
+	})
+
+	got := callTool(t, connect(t, e), "practitioner_profile", map[string]any{
+		"profile_url": e.base + "/centre-dentaire/paris/centre-example",
+	})
+	assertJSON(t, got["agendas"], `[]`)
+	assertJSON(t, got["motive_index"], `[]`)
+}
+
 func TestProfileKeepsTheProfileTenMinutes(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -306,19 +321,29 @@ func TestProfileKeepsAnEmptyDataWrapper(t *testing.T) {
 	}
 }
 
-// bigProfile is a centre with 3 motives offered by bookable agendas without a practitioner: 1001 and 1002 by 200
-// each, about 26,000 characters with their agendas, and 1003 by 300, about 39,000.
+// bigProfile is a centre with 3 motives: 1001 and 1002 with 200 agendas each come to about 26,000 characters, and
+// 1003 with 300 to about 39,000.
 func bigProfile() string {
-	agendas := make([]string, 0, 700)
-	for id := 1; id <= 700; id++ {
-		agendas = append(agendas, fmt.Sprintf(`{"id": %d, "booking_temporary_disabled": false, "practice_id": 2001, `+
-			`"practitioner_id": null, "visit_motive_ids_by_practice_id": {"2001": [%d]}}`, id, 1001+min(id-1, 400)/200))
-	}
 	motives := make([]string, 0, 3)
 	for id := 1001; id <= 1003; id++ {
 		motives = append(motives, fmt.Sprintf(`{"id": %d, "name": "Consultation %d", "telehealth": false, `+
 			`"visit_motive_category_id": null}`, id, id))
 	}
+	return centre(bigAgendas(), motives)
+}
+
+// bigAgendas are 700 bookable agendas without a practitioner: 1–200 offer motive 1001, 201–400 1002, 401–700 1003.
+func bigAgendas() []string {
+	agendas := make([]string, 0, 700)
+	for id := 1; id <= 700; id++ {
+		agendas = append(agendas, fmt.Sprintf(`{"id": %d, "booking_temporary_disabled": false, "practice_id": 2001, `+
+			`"practitioner_id": null, "visit_motive_ids_by_practice_id": {"2001": [%d]}}`, id, 1001+min(id-1, 400)/200))
+	}
+	return agendas
+}
+
+// centre is a profile at one practice, 2001.
+func centre(agendas, motives []string) string {
 	return `{"data": {
 		"places": [{"id": "practice-2001", "name": "Centre dentaire Exemple", "practice_ids": [2001]}],
 		"practitioners": [], "specialities": [{"id": 7, "name": "Dentiste"}],
@@ -339,10 +364,7 @@ func manyMotives() string {
 			fmt.Sprintf(`{"id": %d, "name": "Consultation %d", "telehealth": false}`, 1000+id, 1000+id),
 		)
 	}
-	return `{"data": {
-		"places": [{"id": "practice-2001", "name": "Centre dentaire Exemple", "practice_ids": [2001]}],
-		"agendas": [` + strings.Join(agendas, ", ") + `],
-		"visit_motives": [` + strings.Join(motives, ", ") + `]}}`
+	return centre(agendas, motives)
 }
 
 // sequence is the JSON array of the integers from first to last.

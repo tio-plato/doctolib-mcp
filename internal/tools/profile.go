@@ -41,8 +41,9 @@ type ProfileOutput struct {
 	Practitioners     []ProfilePractitioner `json:"practitioners"`
 	Agendas           []ProfileAgenda       `json:"agendas"`
 	Motives           []Motive              `json:"motives"`
-	// MotiveIndex stands in for the motives of a profile too large for one result.
-	MotiveIndex []MotiveSummary `json:"motive_index,omitempty"`
+	// MotiveIndex stands in for the motives of a profile too large for one result. It is a pointer so that an
+	// index of no motive still shows.
+	MotiveIndex *[]MotiveSummary `json:"motive_index,omitempty"`
 	// RemainingMotiveIDs are the motive_ids asked for that didn't fit.
 	RemainingMotiveIDs []int64        `json:"remaining_motive_ids,omitempty"`
 	Other              map[string]any `json:"other"`
@@ -278,12 +279,11 @@ func (p *organisedProfile) index() *ProfileOutput {
 	out := *p.out
 	out.Practitioners, out.Agendas, out.Motives = []ProfilePractitioner{}, []ProfileAgenda{}, []Motive{}
 	out.Other = map[string]any{}
-	out.MotiveIndex = make([]MotiveSummary, 0, len(p.out.Motives))
+	index := make([]MotiveSummary, 0, len(p.out.Motives))
 	for _, m := range p.out.Motives {
-		out.MotiveIndex = append(out.MotiveIndex, MotiveSummary{
-			ID: m.ID, Name: m.Name, Category: m.Category, Telehealth: m.Telehealth,
-		})
+		index = append(index, MotiveSummary{ID: m.ID, Name: m.Name, Category: m.Category, Telehealth: m.Telehealth})
 	}
+	out.MotiveIndex = &index
 	return &out
 }
 
