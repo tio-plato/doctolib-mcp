@@ -356,16 +356,18 @@ func TestProfileCategoryOfAnotherTypeIsNull(t *testing.T) {
 	e := newEnv(t)
 	e.fake.handle(profilePath, func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, `{"data": {
-			"visit_motive_categories": [{"id": 51, "name": "Contrôle"}, {"id": 52, "name": 5}],
+			"visit_motive_categories": [{"id": 51, "name": "Contrôle"}, {"id": 52, "name": 5}, {"id": 53, "name": null}],
 			"visit_motives": [{"id": 3001, "name": "Contrôle annuel", "visit_motive_category_id": 51},
-				{"id": 3002, "name": "Consultation de suivi", "visit_motive_category_id": 52}]}}`)
+				{"id": 3002, "name": "Consultation de suivi", "visit_motive_category_id": 52},
+				{"id": 3003, "name": "Détartrage", "visit_motive_category_id": 53}]}}`)
 	})
 
 	out, err := e.tools.Profile(t.Context(), tools.ProfileInput{ProfileURL: e.base + "/dentiste/paris/ada-example"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertJSON(t, pluck(t, asJSON(t, out)["motives"], "category"), `["Contrôle", null]`)
+	// A null name is no more Doctolib's answer than a name of another type.
+	assertJSON(t, pluck(t, asJSON(t, out)["motives"], "category"), `["Contrôle", null, null]`)
 }
 
 // bigProfile is a centre with 3 motives: 1001 and 1002 with 200 agendas each come to about 26,000 characters, and
