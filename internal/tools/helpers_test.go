@@ -88,6 +88,8 @@ type env struct {
 	fake  *fake
 	gate  *gate.Gate
 	base  string
+	// now is the tools' clock: a test that moves it calls the tools from its own goroutine only.
+	now time.Time
 }
 
 func newEnv(t *testing.T, configure ...func(*gate.Config)) *env {
@@ -121,11 +123,13 @@ func newEnv(t *testing.T, configure ...func(*gate.Config)) *env {
 	}
 	g := gate.New(cfg)
 	client := doctolib.New(doctolib.Config{BaseURL: srv.URL, ChromeMajor: testChrome, Gate: g, Timeout: 0})
-	tl, err := tools.New(client, place.NewResolver(srv.URL), testNow)
+	e := &env{tools: nil, fake: f, gate: g, base: srv.URL, now: testNow()}
+	tl, err := tools.New(client, place.NewResolver(srv.URL), func() time.Time { return e.now })
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &env{tools: tl, fake: f, gate: g, base: srv.URL}
+	e.tools = tl
+	return e
 }
 
 const availabilityWithSlots = `{"total": 1, "availabilities": [{"date": "2026-11-17", "slots": ["2026-11-17T09:50:00.000+01:00"]}]}`

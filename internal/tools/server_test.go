@@ -32,6 +32,25 @@ func connect(t *testing.T, e *env) *mcp.ClientSession {
 	return cs
 }
 
+// callTool fails the test on any error and returns the structured result as a client decodes it.
+func callTool(t *testing.T, cs *mcp.ClientSession, name string, args map[string]any) map[string]any {
+	t.Helper()
+	res, err := cs.CallTool(t.Context(), &mcp.CallToolParams{Name: name, Arguments: args})
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	if res.IsError {
+		t.Fatalf("%s: tool error %q", name, res.Content[0].(*mcp.TextContent).Text)
+	}
+	var structured map[string]any
+	data, _ := json.Marshal(res.StructuredContent)
+	err = json.Unmarshal(data, &structured)
+	if err != nil {
+		t.Fatalf("%s: structured content %s", name, data)
+	}
+	return structured
+}
+
 func TestToolsThroughTheSDK(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -52,21 +71,9 @@ func TestToolsThroughTheSDK(t *testing.T) {
 			"visit_motive_id": 3001, "agenda_ids": []int{1001}, "practice_id": 2001,
 		}}}, func(m map[string]any) any { return m["results"].([]any)[0].(map[string]any)["other"] }},
 	} {
-		res, err := cs.CallTool(t.Context(), &mcp.CallToolParams{Name: tc.name, Arguments: tc.args})
-		if err != nil {
-			t.Fatalf("%s: %v", tc.name, err)
-		}
-		if res.IsError {
-			t.Fatalf("%s: tool error %+v", tc.name, res.Content)
-		}
-		var structured map[string]any
-		data, _ := json.Marshal(res.StructuredContent)
-		err = json.Unmarshal(data, &structured)
-		if err != nil {
-			t.Fatalf("%s: structured content %s", tc.name, data)
-		}
+		structured := callTool(t, cs, tc.name, tc.args)
 		if other, ok := tc.other(structured).(map[string]any); !ok || len(other) == 0 {
-			t.Errorf("%s: no other in %s", tc.name, data)
+			t.Errorf("%s: no other in %v", tc.name, structured)
 		}
 	}
 }

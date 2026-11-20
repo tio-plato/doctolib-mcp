@@ -138,6 +138,12 @@ func (g *Gate) Acquire(ctx context.Context) error {
 	return g.writeLog(append(sent, now))
 }
 
+// CheckMarker is for a call that sends no request: it only reads the marker, so it counts against no cap and
+// waits out no interval. Block replaces the marker atomically, so it needs no lock.
+func (g *Gate) CheckMarker() error {
+	return g.checkMarker()
+}
+
 // waitAfter waits at most one interval and returns no time before last, so a clock stepping back neither
 // stalls the gate nor puts the log out of order.
 func (g *Gate) waitAfter(ctx context.Context, last, now time.Time) (time.Time, error) {

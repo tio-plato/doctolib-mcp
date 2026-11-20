@@ -21,7 +21,9 @@
         "telehealth": false,
         "name": "Première consultation",
         "new_patient_restrictions": [{"insurance_sector": "all", "agenda_ids": [1002]}],
-        "age_referral_restrictions": [],
+        "age_referral_restrictions": [
+          {"age": {"age": 13, "operator": "lt", "unit": "years"}, "agenda_ids": [1001, 1003, 1099], "insurance_sector": "all"}
+        ],
         "configurations": null,
         "testOnlyUnknownField": "kept"
       },
@@ -32,20 +34,33 @@
         "position": 2,
         "telehealth": true,
         "name": "Consultation de suivi",
-        "new_patient_restrictions": [],
-        "age_referral_restrictions": [],
+        "new_patient_restrictions": [
+          {"insurance_sector": "all", "agenda_ids": [1002, 1004]},
+          {"insurance_sector": "all", "agenda_ids": [1004, 1001, 1099]}
+        ],
+        "age_referral_restrictions": [
+          {"age": {"age": 15, "operator": "lt", "unit": "years"}, "agenda_ids": [1002, 1001], "insurance_sector": "all"},
+          {"insurance_sector": "all"}
+        ],
         "configurations": null
       }
     ],
     "filtered_visit_motives": [],
     "agendas": [
-      {"id": 1001, "booking_temporary_disabled": false, "practice_id": 2001, "practitioner_id": 5001, "visit_motive_ids_by_practice_id": {"2001": [3001, 3002]}, "visit_motive_ids": [3001, 3002], "landline_number": "01 00 00 00 00"},
-      {"id": 1002, "booking_temporary_disabled": false, "practice_id": 2001, "practitioner_id": 5002, "visit_motive_ids_by_practice_id": {"2001": [3001]}, "visit_motive_ids": [3001]},
-      {"id": 1003, "booking_temporary_disabled": true, "practice_id": 2002, "practitioner_id": 5001, "visit_motive_ids_by_practice_id": {"2002": [3001]}, "visit_motive_ids": [3001]}
+      {"id": 1001, "booking_temporary_disabled": false, "practice_id": 2001, "practitioner_id": 5001,
+       "visit_motive_ids_by_practice_id": {"2001": [3001, 3002], "2002": [3002]}, "visit_motive_ids": [3002, 3001],
+       "landline_number": "01 00 00 00 00", "anonymous": false},
+      {"id": 1002, "booking_temporary_disabled": false, "practice_id": 2001, "practitioner_id": 5002,
+       "visit_motive_ids_by_practice_id": {"2001": [3001, 3999]}, "visit_motive_ids": [3001, 3999],
+       "landline_number": null, "anonymous": false},
+      {"id": 1003, "booking_temporary_disabled": true, "practice_id": 2002, "practitioner_id": 5001,
+       "visit_motive_ids_by_practice_id": {"2002": [3001]}, "visit_motive_ids": [3001], "anonymous": false},
+      {"id": 1004, "booking_temporary_disabled": false, "practice_id": 2002, "practitioner_id": null,
+       "visit_motive_ids_by_practice_id": {"2002": [3001]}, "visit_motive_ids": [3001, 3002], "anonymous": true}
     ],
     "places": [
       {"id": "practice-2001", "name": "Cabinet dentaire Exemple", "city": "Paris", "zipcode": "75001", "latitude": 48.861, "longitude": 2.336, "address": "1 Rue de l'Exemple", "practice_ids": [2001], "slug": "paris", "landline_number": "01 00 00 00 00"},
-      {"id": "practice-2002", "name": "Clinique Exemple", "city": "Paris", "zipcode": "75002", "latitude": 48.866, "longitude": 2.343, "address": "2 Rue de l'Exemple", "practice_ids": [2002], "slug": "paris"}
+      {"id": "practice-2002", "name": "Clinique Exemple", "city": "Paris", "zipcode": "75002", "latitude": 48.866, "longitude": 2.343, "address": "2 Rue de l'Exemple", "practice_ids": [2002], "slug": "paris", "floor": null}
     ],
     "practitioners": [
       {"id": 5001, "profile_id": 4001, "name": "EXAMPLE ", "name_with_title_and_determiner": "Dr Ada Example", "name_with_title": "Dr Ada EXAMPLE", "speciality": "Dentiste"},

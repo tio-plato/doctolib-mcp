@@ -28,6 +28,16 @@ func (o *object) take(key string, dst any) bool {
 	return true
 }
 
+// takeWhole is take for a value that is null unless the field decodes: a field of another type can leave take's
+// pointer to a zero value.
+func takeWhole[T any](o *object, key string) *T {
+	var v *T
+	if !o.take(key, &v) {
+		return nil
+	}
+	return v
+}
+
 func (o *object) peek(key string, dst any) bool {
 	raw, ok := o.fields[key]
 	if !ok {
@@ -39,6 +49,15 @@ func (o *object) peek(key string, dst any) bool {
 // drop is for a field that was peeked and put into the result unchanged.
 func (o *object) drop(key string) {
 	delete(o.fields, key)
+}
+
+// dropEmpty drops the fields that are null, [] or {}. It doesn't look into sub-objects.
+func (o *object) dropEmpty() {
+	for k, v := range o.fields {
+		if empty(v) {
+			delete(o.fields, k)
+		}
+	}
 }
 
 // sub's leftovers come back in rest under the field's name. An empty object stays in place.
