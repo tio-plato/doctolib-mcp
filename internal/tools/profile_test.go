@@ -145,6 +145,19 @@ func TestProfileMotiveIDs(t *testing.T) {
 	got = callTool(t, cs, "practitioner_profile", map[string]any{"profile_url": profileURL, "motive_ids": []int{3001}})
 	assertJSON(t, pluck(t, got["agendas"], "agenda_id"), `[1001, 1002, 1003, 1004]`)
 	assertJSON(t, pluck(t, got["practitioners"], "id"), `[5001, 5002]`)
+
+	// Both fit: the motives come in the order asked, the agendas in Doctolib's.
+	got = callTool(
+		t,
+		cs,
+		"practitioner_profile",
+		map[string]any{"profile_url": profileURL, "motive_ids": []int{3002, 3001}},
+	)
+	assertJSON(t, pluck(t, got["motives"], "id"), `[3002, 3001]`)
+	assertJSON(t, pluck(t, got["agendas"], "agenda_id"), `[1001, 1002, 1003, 1004]`)
+	if _, ok := got["remaining_motive_ids"]; ok {
+		t.Error("motive_ids that fit got remaining_motive_ids")
+	}
 }
 
 func TestProfileOverBudget(t *testing.T) {
