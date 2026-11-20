@@ -105,6 +105,9 @@ func TestSearchOrganisesResults(t *testing.T) {
 	}
 	// Its matched motive has no agenda, so onlineBooking's are used.
 	assertJSON(t, org.AvailabilityQuery, `{"visit_motive_id": 3002, "agenda_ids": [1002, 1003], "practice_id": 2002}`)
+	assertJSON(t, org.Other["matchedVisitMotive"],
+		`{"agendaIds": [], "fee": null, "insuranceSector": {"split": false, "type": null}}`)
+	assertJSON(t, org.Other["onlineBooking"], `{"bookableOrganizationSpecialities": ["2 dentistes"]}`)
 
 	notBookable := out.Results[2]
 	if notBookable.BookableOnline || notBookable.AvailabilityQuery != nil || notBookable.DistanceKm != nil {

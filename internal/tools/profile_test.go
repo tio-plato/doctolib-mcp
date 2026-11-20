@@ -394,12 +394,17 @@ func TestProfileLeavesOutWhatNoAgendaNames(t *testing.T) {
 		// existing patients for 3001, but not 9, which is no agenda.
 		"every agenda reads": {agendas, `[6001, 6002, null]`, `[1, 3]`, true},
 		"no agenda":          {nil, everyone, `[1, 3, 9]`, false},
+		// With motive_ids, the agenda without id doesn't come: no restriction can name it.
 		"an agenda without id": {
 			slices.Concat(agendas, []string{`{"practice_id": 2001, "practitioner_id": null}`}), everyone, `[1, 3, 9]`,
-			false,
+			true,
 		},
 		"an agenda without practitioner_id": {
 			slices.Concat(agendas, []string{`{"id": 4, "practice_id": 2001}`}), everyone, `[1, 3, 9]`, false,
+		},
+		"an agenda whose practitioner_id doesn't read": {
+			slices.Concat(agendas, []string{`{"id": 4, "practice_id": 2001, "practitioner_id": "6003"}`}), everyone,
+			`[1, 3, 9]`, false,
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
