@@ -56,7 +56,7 @@
       {"id": 1003, "booking_temporary_disabled": true, "practice_id": 2002, "practitioner_id": 5001,
        "visit_motive_ids_by_practice_id": {"2002": [3001]}, "visit_motive_ids": [3001], "anonymous": false},
       {"id": 1004, "booking_temporary_disabled": false, "practice_id": 2002, "practitioner_id": null,
-       "visit_motive_ids_by_practice_id": {"2002": [3001]}, "visit_motive_ids": [3001, 3002], "anonymous": true}
+       "visit_motive_ids_by_practice_id": {"2002": [3001]}, "visit_motive_ids": [3002], "anonymous": true}
     ],
     "places": [
       {"id": "practice-2001", "name": "Cabinet dentaire Exemple", "city": "Paris", "zipcode": "75001", "latitude": 48.861, "longitude": 2.336, "address": "1 Rue de l'Exemple", "practice_ids": [2001], "slug": "paris", "landline_number": "01 00 00 00 00"},

@@ -74,7 +74,7 @@ func TestProfileOrganisesMotivesAndAgendas(t *testing.T) {
 
 	got := asJSON(t, out)
 	// The motive lists leave other only when offered says all they say: 1002 lists a motive the profile doesn't
-	// have, 1003 has booking disabled, and 1004's visit_motive_ids holds a motive its map doesn't.
+	// have, 1003 has booking disabled, and 1004's visit_motive_ids names another motive than its map.
 	assertJSON(t, got["agendas"], `[`+agenda1001+`,
 		{"agenda_id": 1002, "practice_id": 2001, "practitioner_id": 5002, "practitioner": "Dr Bob EXAMPLE",
 		 "booking_temporary_disabled": false,
@@ -84,7 +84,7 @@ func TestProfileOrganisesMotivesAndAgendas(t *testing.T) {
 		 "booking_temporary_disabled": true,
 		 "other": {"anonymous": false, "visit_motive_ids": [3001], "visit_motive_ids_by_practice_id": {"2002": [3001]}}},
 		{"agenda_id": 1004, "practice_id": 2002, "practitioner_id": null, "practitioner": null,
-		 "booking_temporary_disabled": false, "other": {"anonymous": true, "visit_motive_ids": [3001, 3002]}}]`)
+		 "booking_temporary_disabled": false, "other": {"anonymous": true, "visit_motive_ids": [3002]}}]`)
 
 	// Agenda 1003 is disabled: it is in no offered, but its restrictions stay, as does 1099, which no agenda has.
 	assertJSON(t, out.Motives[0], `{
@@ -180,6 +180,14 @@ func TestProfileOverBudget(t *testing.T) {
 	if _, ok := got["motive_index"]; ok {
 		t.Error("picked motives have motive_index")
 	}
+
+	// 1003 with its 300 agendas doesn't fit alone, but the first motive asked for always goes in.
+	got = callTool(t, cs, "practitioner_profile", map[string]any{"profile_url": profileURL, "motive_ids": []int{1003}})
+	assertJSON(t, pluck(t, got["motives"], "id"), `[1003]`)
+	assertJSON(t, pluck(t, got["agendas"], "agenda_id"), sequence(401, 700))
+	if _, ok := got["remaining_motive_ids"]; ok {
+		t.Error("a single motive left remaining_motive_ids")
+	}
 }
 
 func TestProfileKeepsTheProfileTenMinutes(t *testing.T) {
@@ -253,13 +261,13 @@ func TestProfileKeepsAnEmptyDataWrapper(t *testing.T) {
 	}
 }
 
-// bigProfile is a centre with 3 motives, each offered by 200 bookable agendas without a practitioner: one motive
-// with its agendas comes to about 26,000 characters, two to about 52,000.
+// bigProfile is a centre with 3 motives offered by bookable agendas without a practitioner: 1001 and 1002 by 200
+// each, about 26,000 characters with their agendas, and 1003 by 300, about 39,000.
 func bigProfile() string {
-	agendas := make([]string, 0, 600)
-	for id := 1; id <= 600; id++ {
+	agendas := make([]string, 0, 700)
+	for id := 1; id <= 700; id++ {
 		agendas = append(agendas, fmt.Sprintf(`{"id": %d, "booking_temporary_disabled": false, "practice_id": 2001, `+
-			`"practitioner_id": null, "visit_motive_ids_by_practice_id": {"2001": [%d]}}`, id, 1001+(id-1)/200))
+			`"practitioner_id": null, "visit_motive_ids_by_practice_id": {"2001": [%d]}}`, id, 1001+min(id-1, 400)/200))
 	}
 	motives := make([]string, 0, 3)
 	for id := 1001; id <= 1003; id++ {
