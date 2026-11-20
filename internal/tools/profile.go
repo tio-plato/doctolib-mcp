@@ -324,8 +324,8 @@ func (p *organisedProfile) pick(motiveIDs []int64) (*ProfileOutput, error) {
 	return out, nil
 }
 
-// subset has the motives of ids in their order, and the agendas that list them, bookable or not, with their
-// practitioners, in Doctolib's order.
+// subset has the motives of ids in their order, and the agendas that list them or whose motives don't read, bookable
+// or not, with their practitioners, in Doctolib's order: the restrictions keep the latter too.
 func (p *organisedProfile) subset(ids []int64) *ProfileOutput {
 	out := *p.out
 	out.Motives = []Motive{}
@@ -340,7 +340,8 @@ func (p *organisedProfile) subset(ids []int64) *ProfileOutput {
 	practitioners := map[int64]bool{}
 	for i := range p.agendas {
 		a := &p.agendas[i]
-		if !slices.ContainsFunc(ids, a.lists) {
+		unknown := len(ids) > 0 && a.out.AgendaID != nil && a.byPractice == nil
+		if !unknown && !slices.ContainsFunc(ids, a.lists) {
 			continue
 		}
 		out.Agendas = append(out.Agendas, a.out)

@@ -387,16 +387,19 @@ func TestProfileLeavesOutWhatNoAgendaNames(t *testing.T) {
 	for name, tc := range map[string]struct {
 		agendas                     []string
 		practitioners, restrictions string
+		// pick checks motive_ids too.
+		pick bool
 	}{
 		// The practitioner without an id can't be told apart: they stay. So does agenda 3, which may take only
 		// existing patients for 3001, but not 9, which is no agenda.
-		"every agenda reads": {agendas, `[6001, 6002, null]`, `[1, 3]`},
-		"no agenda":          {nil, everyone, `[1, 3, 9]`},
+		"every agenda reads": {agendas, `[6001, 6002, null]`, `[1, 3]`, true},
+		"no agenda":          {nil, everyone, `[1, 3, 9]`, false},
 		"an agenda without id": {
 			slices.Concat(agendas, []string{`{"practice_id": 2001, "practitioner_id": null}`}), everyone, `[1, 3, 9]`,
+			false,
 		},
 		"an agenda without practitioner_id": {
-			slices.Concat(agendas, []string{`{"id": 4, "practice_id": 2001}`}), everyone, `[1, 3, 9]`,
+			slices.Concat(agendas, []string{`{"id": 4, "practice_id": 2001}`}), everyone, `[1, 3, 9]`, false,
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -412,16 +415,34 @@ func TestProfileLeavesOutWhatNoAgendaNames(t *testing.T) {
 						"new_patient_restrictions": [{"insurance_sector": "all", "agenda_ids": [1, 3, 9]}]}]}}`)
 			})
 
-			out, err := e.tools.Profile(
-				t.Context(),
-				tools.ProfileInput{ProfileURL: e.base + "/centre-dentaire/paris/centre-example"},
-			)
+			in := tools.ProfileInput{ProfileURL: e.base + "/centre-dentaire/paris/centre-example"}
+			out, err := e.tools.Profile(t.Context(), in)
 			if err != nil {
 				t.Fatal(err)
 			}
 			assertJSON(t, pluck(t, asJSON(t, out)["practitioners"], "id"), tc.practitioners)
 			assertJSON(t, out.Motives[0].NewPatientRestrictions,
 				`[{"insurance_sector": "all", "agenda_ids": `+tc.restrictions+`}]`)
+			if !tc.pick {
+				return
+			}
+
+			// Agenda 3 comes with the motive too, so that every agenda_ids of its restrictions is in agendas.
+			in.MotiveIDs = []int64{3001}
+			out, err = e.tools.Profile(t.Context(), in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := asJSON(t, out)
+			assertJSON(t, pluck(t, got["agendas"], "agenda_id"), `[1, 3]`)
+			assertJSON(t, pluck(t, got["practitioners"], "id"), `[6001]`)
+			// No motive, no agenda.
+			in.MotiveIDs = []int64{4242}
+			out, err = e.tools.Profile(t.Context(), in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertJSON(t, out.Agendas, `[]`)
 		})
 	}
 }
