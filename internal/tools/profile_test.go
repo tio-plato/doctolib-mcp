@@ -370,6 +370,52 @@ func TestProfileCategoryOfAnotherTypeIsNull(t *testing.T) {
 	assertJSON(t, pluck(t, asJSON(t, out)["motives"], "category"), `["Contrôle", null, null]`)
 }
 
+// What no agenda names can't be booked through this profile. Only agendas that all read tell what that is: were
+// Doctolib to rename agendas or practitioner_id, nothing would be left out.
+func TestProfileLeavesOutWhatNoAgendaNames(t *testing.T) {
+	t.Parallel()
+	// 6002 is only on agenda 2, whose booking is disabled, agenda 3 is anonymous, and 6003 is on no agenda.
+	agendas := []string{
+		`{"id": 1, "practice_id": 2001, "practitioner_id": 6001, "booking_temporary_disabled": false}`,
+		`{"id": 2, "practice_id": 2001, "practitioner_id": 6002, "booking_temporary_disabled": true}`,
+		`{"id": 3, "practice_id": 2001, "practitioner_id": null, "booking_temporary_disabled": false}`,
+	}
+	everyone := `[6001, 6003, 6002, null]`
+	for name, tc := range map[string]struct {
+		agendas       []string
+		practitioners string
+	}{
+		// The practitioner without an id can't be told apart: they stay.
+		"every agenda reads":   {agendas, `[6001, 6002, null]`},
+		"no agenda":            {nil, everyone},
+		"an agenda without id": {slices.Concat(agendas, []string{`{"practice_id": 2001, "practitioner_id": null}`}), everyone},
+		"an agenda without practitioner_id": {
+			slices.Concat(agendas, []string{`{"id": 4, "practice_id": 2001}`}), everyone,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+			e.fake.handle(profilePath, func(w http.ResponseWriter, _ *http.Request) {
+				writeJSON(w, http.StatusOK, `{"data": {
+					"practitioners": [{"id": 6001, "name_with_title": "Dr Ada EXAMPLE"},
+						{"id": 6003, "name_with_title": "Dr Bob EXAMPLE"}, {"id": 6002, "name_with_title": "Dr Cleo EXAMPLE"},
+						{"name_with_title": "Dr Dan EXAMPLE"}],
+					"agendas": [`+strings.Join(tc.agendas, ", ")+`]}}`)
+			})
+
+			out, err := e.tools.Profile(
+				t.Context(),
+				tools.ProfileInput{ProfileURL: e.base + "/centre-dentaire/paris/centre-example"},
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertJSON(t, pluck(t, asJSON(t, out)["practitioners"], "id"), tc.practitioners)
+		})
+	}
+}
+
 // bigProfile is a centre with 3 motives: 1001 and 1002 with 200 agendas each come to about 26,000 characters, and
 // 1003 with 300 to about 39,000.
 func bigProfile() string {

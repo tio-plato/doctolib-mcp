@@ -220,6 +220,10 @@ func organiseProfile(raw []byte, profileURL string) (*organisedProfile, error) {
 	out.Practitioners = takeEach(data, "practitioners", organiseProfilePractitioner)
 	names := practitionerNames(out.Practitioners)
 	agendas := takeEach(data, "agendas", func(raw json.RawMessage) agenda { return readAgenda(raw, names) })
+	judged := len(agendas) > 0 && !slices.ContainsFunc(agendas, func(a agenda) bool { return a.unread() })
+	if judged {
+		out.Practitioners = onAgendas(out.Practitioners, agendas)
+	}
 	// Categories are only peeked: they stay whole in other.
 	ctx := motiveContext{agendas: agendas, listing: agendaListing(agendas), categories: categoryNames(data)}
 	out.Motives = takeEach(data, "visit_motives", func(raw json.RawMessage) Motive { return organiseMotive(raw, ctx) })
@@ -445,6 +449,14 @@ type agenda struct {
 	obj *object
 	// byPractice is visit_motive_ids_by_practice_id, nil when it doesn't read as a map.
 	byPractice map[string][]int64
+	// namesPractitioner is false when practitioner_id is missing or doesn't read; null names none.
+	namesPractitioner bool
+}
+
+// unread agendas leave the profile's practitioners and restriction ids as they are: without an id or a
+// practitioner_id, an agenda could be the one they name.
+func (a *agenda) unread() bool {
+	return a.out.AgendaID == nil || !a.namesPractitioner
 }
 
 func readAgenda(raw json.RawMessage, names map[int64]*string) agenda {
@@ -456,7 +468,7 @@ func readAgenda(raw json.RawMessage, names map[int64]*string) agenda {
 	}
 	a.obj.take("id", &a.out.AgendaID)
 	a.obj.take("practice_id", &a.out.PracticeID)
-	a.obj.take("practitioner_id", &a.out.PractitionerID)
+	a.namesPractitioner = a.obj.take("practitioner_id", &a.out.PractitionerID)
 	a.obj.take("booking_temporary_disabled", &a.out.BookingTemporaryDisabled)
 	if a.out.PractitionerID != nil {
 		a.out.Practitioner = names[*a.out.PractitionerID]
@@ -683,4 +695,15 @@ func (c motiveContext) narrowEntry(raw json.RawMessage, motive int64) (json.RawM
 		return raw, true
 	}
 	return data, true
+}
+
+// onAgendas keeps the practitioners an agenda names, and those whose id doesn't read.
+func onAgendas(practitioners []ProfilePractitioner, agendas []agenda) []ProfilePractitioner {
+	named := map[int64]bool{}
+	for i := range agendas {
+		if id := agendas[i].out.PractitionerID; id != nil {
+			named[*id] = true
+		}
+	}
+	return slices.DeleteFunc(practitioners, func(p ProfilePractitioner) bool { return p.ID != nil && !named[*p.ID] })
 }
