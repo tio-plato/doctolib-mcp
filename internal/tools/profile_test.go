@@ -24,7 +24,7 @@ const (
 	agenda1001 = `{"agenda_id": 1001, "practice_id": 2001, "practitioner_id": 5001, "practitioner": "Dr Ada EXAMPLE",
 		"booking_temporary_disabled": false, "other": {"anonymous": false, "landline_number": "01 00 00 00 00"}}`
 	motive3002 = `{"id": 3002, "name": "Consultation de suivi", "telehealth": true, "category": "Suivi",
-		"new_patient_restrictions": [{"insurance_sector": "all", "agenda_ids": [1001, 1099]}],
+		"new_patient_restrictions": [{"insurance_sector": "all", "agenda_ids": [1001]}],
 		"age_referral_restrictions": [
 			{"age": {"age": 15, "operator": "lt", "unit": "years"}, "agenda_ids": [1001], "insurance_sector": "all"},
 			{"insurance_sector": "all"}],
@@ -89,13 +89,12 @@ func TestProfileOrganisesMotivesAndAgendas(t *testing.T) {
 		{"agenda_id": 1004, "practice_id": 2002, "practitioner_id": null, "practitioner": null,
 		 "booking_temporary_disabled": false, "other": {"anonymous": true, "visit_motive_ids": [3002]}}]`)
 
-	// Agenda 1003 is disabled: it is in no offered, but its restrictions stay, as does 1099, which no agenda has.
+	// Agenda 1003 is disabled: it is in no offered, but its restrictions stay. 1099, which no agenda has, goes.
 	assertJSON(t, out.Motives[0], `{
 		"id": 3001, "name": "Première consultation", "telehealth": false, "category": null,
 		"new_patient_restrictions": [{"insurance_sector": "all", "agenda_ids": [1002]}],
 		"age_referral_restrictions": [
-			{"age": {"age": 13, "operator": "lt", "unit": "years"}, "agenda_ids": [1001, 1003, 1099],
-			 "insurance_sector": "all"}],
+			{"age": {"age": 13, "operator": "lt", "unit": "years"}, "agenda_ids": [1001, 1003], "insurance_sector": "all"}],
 		"offered": [{"visit_motive_id": 3001, "agenda_ids": [1001, 1002], "practice_id": 2001},
 			{"visit_motive_id": 3001, "agenda_ids": [1004], "practice_id": 2002}],
 		"other": {"position": 1, "testOnlyUnknownField": "kept"}}`)
@@ -374,23 +373,30 @@ func TestProfileCategoryOfAnotherTypeIsNull(t *testing.T) {
 // Doctolib to rename agendas or practitioner_id, nothing would be left out.
 func TestProfileLeavesOutWhatNoAgendaNames(t *testing.T) {
 	t.Parallel()
-	// 6002 is only on agenda 2, whose booking is disabled, agenda 3 is anonymous, and 6003 is on no agenda.
+	// 6002 is only on agenda 2, whose booking is disabled, agenda 3 is anonymous, and 6003 is on no agenda. Agenda 1
+	// lists motive 3001, 2 doesn't, and 3's motives don't read.
 	agendas := []string{
-		`{"id": 1, "practice_id": 2001, "practitioner_id": 6001, "booking_temporary_disabled": false}`,
-		`{"id": 2, "practice_id": 2001, "practitioner_id": 6002, "booking_temporary_disabled": true}`,
-		`{"id": 3, "practice_id": 2001, "practitioner_id": null, "booking_temporary_disabled": false}`,
+		`{"id": 1, "practice_id": 2001, "practitioner_id": 6001, "booking_temporary_disabled": false,
+			"visit_motive_ids_by_practice_id": {"2001": [3001]}}`,
+		`{"id": 2, "practice_id": 2001, "practitioner_id": 6002, "booking_temporary_disabled": true,
+			"visit_motive_ids_by_practice_id": {"2001": [3002]}}`,
+		`{"id": 3, "practice_id": 2001, "practitioner_id": null, "booking_temporary_disabled": false,
+			"visit_motive_ids_by_practice_id": [3001]}`,
 	}
 	everyone := `[6001, 6003, 6002, null]`
 	for name, tc := range map[string]struct {
-		agendas       []string
-		practitioners string
+		agendas                     []string
+		practitioners, restrictions string
 	}{
-		// The practitioner without an id can't be told apart: they stay.
-		"every agenda reads":   {agendas, `[6001, 6002, null]`},
-		"no agenda":            {nil, everyone},
-		"an agenda without id": {slices.Concat(agendas, []string{`{"practice_id": 2001, "practitioner_id": null}`}), everyone},
+		// The practitioner without an id can't be told apart: they stay. So does agenda 3, which may take only
+		// existing patients for 3001, but not 9, which is no agenda.
+		"every agenda reads": {agendas, `[6001, 6002, null]`, `[1, 3]`},
+		"no agenda":          {nil, everyone, `[1, 3, 9]`},
+		"an agenda without id": {
+			slices.Concat(agendas, []string{`{"practice_id": 2001, "practitioner_id": null}`}), everyone, `[1, 3, 9]`,
+		},
 		"an agenda without practitioner_id": {
-			slices.Concat(agendas, []string{`{"id": 4, "practice_id": 2001}`}), everyone,
+			slices.Concat(agendas, []string{`{"id": 4, "practice_id": 2001}`}), everyone, `[1, 3, 9]`,
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -401,7 +407,9 @@ func TestProfileLeavesOutWhatNoAgendaNames(t *testing.T) {
 					"practitioners": [{"id": 6001, "name_with_title": "Dr Ada EXAMPLE"},
 						{"id": 6003, "name_with_title": "Dr Bob EXAMPLE"}, {"id": 6002, "name_with_title": "Dr Cleo EXAMPLE"},
 						{"name_with_title": "Dr Dan EXAMPLE"}],
-					"agendas": [`+strings.Join(tc.agendas, ", ")+`]}}`)
+					"agendas": [`+strings.Join(tc.agendas, ", ")+`],
+					"visit_motives": [{"id": 3001, "name": "Consultation",
+						"new_patient_restrictions": [{"insurance_sector": "all", "agenda_ids": [1, 3, 9]}]}]}}`)
 			})
 
 			out, err := e.tools.Profile(
@@ -412,6 +420,8 @@ func TestProfileLeavesOutWhatNoAgendaNames(t *testing.T) {
 				t.Fatal(err)
 			}
 			assertJSON(t, pluck(t, asJSON(t, out)["practitioners"], "id"), tc.practitioners)
+			assertJSON(t, out.Motives[0].NewPatientRestrictions,
+				`[{"insurance_sector": "all", "agenda_ids": `+tc.restrictions+`}]`)
 		})
 	}
 }

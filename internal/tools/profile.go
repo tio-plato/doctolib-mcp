@@ -225,7 +225,9 @@ func organiseProfile(raw []byte, profileURL string) (*organisedProfile, error) {
 		out.Practitioners = onAgendas(out.Practitioners, agendas)
 	}
 	// Categories are only peeked: they stay whole in other.
-	ctx := motiveContext{agendas: agendas, listing: agendaListing(agendas), categories: categoryNames(data)}
+	ctx := motiveContext{
+		agendas: agendas, listing: agendaListing(agendas), judged: judged, categories: categoryNames(data),
+	}
 	out.Motives = takeEach(data, "visit_motives", func(raw json.RawMessage) Motive { return organiseMotive(raw, ctx) })
 	// What offered says leaves an agenda's other, which takes the motives.
 	motives := motiveSet(out.Motives)
@@ -579,7 +581,9 @@ func agendaListing(agendas []agenda) map[int64]map[int64]bool {
 type motiveContext struct {
 	agendas []agenda
 	// listing is agendaListing's.
-	listing    map[int64]map[int64]bool
+	listing map[int64]map[int64]bool
+	// judged is false when some agenda can't be read: then an id that no agenda has may still be one.
+	judged     bool
 	categories map[int64]string
 }
 
@@ -668,7 +672,7 @@ func (c motiveContext) narrow(raw json.RawMessage, motive int64) json.RawMessage
 	return data
 }
 
-// narrowEntry is false for an entry with no agenda left. An agenda id the profile doesn't have stays.
+// narrowEntry is false for an entry with no agenda left. An agenda id the profile doesn't have goes too.
 func (c motiveContext) narrowEntry(raw json.RawMessage, motive int64) (json.RawMessage, bool) {
 	o := parseObject(raw)
 	var ids []int64
@@ -677,7 +681,10 @@ func (c motiveContext) narrowEntry(raw json.RawMessage, motive int64) (json.RawM
 	}
 	left := slices.DeleteFunc(slices.Clone(ids), func(id int64) bool {
 		listed, ok := c.listing[id]
-		return ok && listed != nil && !listed[motive]
+		if !ok {
+			return c.judged
+		}
+		return listed != nil && !listed[motive]
 	})
 	if len(left) == 0 {
 		return nil, false
