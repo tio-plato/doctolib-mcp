@@ -454,10 +454,10 @@ func readAgenda(raw json.RawMessage, names map[int64]*string) agenda {
 		a.out.Other = notObject(raw)
 		return a
 	}
-	a.out.AgendaID = takeWhole[int64](a.obj, "id")
-	a.out.PracticeID = takeWhole[int64](a.obj, "practice_id")
-	a.out.PractitionerID = takeWhole[int64](a.obj, "practitioner_id")
-	a.out.BookingTemporaryDisabled = takeWhole[bool](a.obj, "booking_temporary_disabled")
+	a.obj.take("id", &a.out.AgendaID)
+	a.obj.take("practice_id", &a.out.PracticeID)
+	a.obj.take("practitioner_id", &a.out.PractitionerID)
+	a.obj.take("booking_temporary_disabled", &a.out.BookingTemporaryDisabled)
 	if a.out.PractitionerID != nil {
 		a.out.Practitioner = names[*a.out.PractitionerID]
 	}
@@ -578,7 +578,7 @@ func organiseMotive(raw json.RawMessage, ctx motiveContext) Motive {
 		m.Other = notObject(raw)
 		return m
 	}
-	m.ID = takeWhole[int64](o, "id")
+	o.take("id", &m.ID)
 	o.take("name", &m.Name)
 	o.take("telehealth", &m.Telehealth)
 	var categoryID *int64

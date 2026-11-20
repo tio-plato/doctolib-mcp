@@ -29,16 +29,6 @@ func (o *object) take(key string, dst any) bool {
 	return true
 }
 
-// takeWhole is take for a value that is null unless the field decodes: a field of another type can leave take's
-// pointer to a zero value.
-func takeWhole[T any](o *object, key string) *T {
-	var v *T
-	if !o.take(key, &v) {
-		return nil
-	}
-	return v
-}
-
 // peek sets dst only when the whole field decodes: before it reports a type error, encoding/json has filled in what
 // it could, such as a pointer to a zero value.
 func (o *object) peek(key string, dst any) bool {
