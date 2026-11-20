@@ -2,6 +2,7 @@ package tools
 
 import (
 	"encoding/json"
+	"reflect"
 )
 
 // object keeps what isn't taken in the other of the same level, so no field is lost.
@@ -18,8 +19,8 @@ func parseObject(raw json.RawMessage) *object {
 	return &object{fields: fields, subs: map[string]*object{}}
 }
 
-// take leaves a field that doesn't decode into dst in place. dst should be a pointer to a pointer, a slice or a
-// [json.RawMessage], so that null stays null.
+// take leaves a field that doesn't decode into dst in place, and dst as it was. dst should be a pointer to a pointer, a
+// slice or a [json.RawMessage], so that null stays null.
 func (o *object) take(key string, dst any) bool {
 	if !o.peek(key, dst) {
 		return false
@@ -38,12 +39,19 @@ func takeWhole[T any](o *object, key string) *T {
 	return v
 }
 
+// peek sets dst only when the whole field decodes: before it reports a type error, encoding/json has filled in what
+// it could, such as a pointer to a zero value.
 func (o *object) peek(key string, dst any) bool {
 	raw, ok := o.fields[key]
 	if !ok {
 		return false
 	}
-	return json.Unmarshal(raw, dst) == nil
+	v := reflect.New(reflect.TypeOf(dst).Elem())
+	if json.Unmarshal(raw, v.Interface()) != nil {
+		return false
+	}
+	reflect.ValueOf(dst).Elem().Set(v.Elem())
+	return true
 }
 
 // drop is for a field that was peeked and put into the result unchanged.

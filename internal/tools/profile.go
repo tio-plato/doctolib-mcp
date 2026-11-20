@@ -380,15 +380,19 @@ func practitionerNames(practitioners []ProfilePractitioner) map[int64]*string {
 	return names
 }
 
+// categoryNames leaves out a category whose id or name doesn't read, and only that one.
 func categoryNames(data *object) map[int64]string {
-	var categories []struct {
-		ID   int64  `json:"id"`
-		Name string `json:"name"`
-	}
+	var categories []json.RawMessage
 	data.peek("visit_motive_categories", &categories)
 	names := map[int64]string{}
-	for _, c := range categories {
-		names[c.ID] = c.Name
+	for _, raw := range categories {
+		var c struct {
+			ID   *int64  `json:"id"`
+			Name *string `json:"name"`
+		}
+		if json.Unmarshal(raw, &c) == nil && c.ID != nil && c.Name != nil {
+			names[*c.ID] = *c.Name
+		}
 	}
 	return names
 }

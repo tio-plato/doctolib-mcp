@@ -508,3 +508,27 @@ func TestSearchLabelsUnknownSectorWithNull(t *testing.T) {
 	}
 	assertJSON(t, out.Results[0].Sector, `{"code": "testOnlyUnknownSector", "label": null}`)
 }
+
+func TestSearchFieldOfAnotherTypeIsNull(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	body := string(readFile(t, "search.json"))
+	body = strings.Replace(body, `"visitMotiveId": 3001`, `"visitMotiveId": "3001"`, 1)
+	body = strings.Replace(body, `"lat": 48.839`, `"lat": "48.839"`, 1)
+	e.fake.handle(searchPath, func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusPartialContent, body)
+	})
+
+	out, err := e.tools.Search(t.Context(), tools.SearchInput{Query: "dentiste", Place: "75001"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := asJSON(t, out.Results[0])
+	// Null: not an availability_query for motive 0 or a distance from latitude 0.
+	for _, key := range []string{"availability_query", "lat", "distance_km"} {
+		if got[key] != nil {
+			t.Errorf("%s is %v, want null", key, got[key])
+		}
+	}
+	assertJSON(t, got["matched_motive"], `{"id": null, "name": "Première consultation"}`)
+}
