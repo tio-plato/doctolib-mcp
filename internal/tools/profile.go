@@ -236,7 +236,7 @@ func organiseProfile(raw []byte, profileURL string) (*organisedProfile, error) {
 	return &organisedProfile{out: out, agendas: agendas}, nil
 }
 
-// takeEach leaves a field that isn't an array in place.
+// takeEach takes null as no items, as take does, and leaves any other field that isn't an array in place.
 func takeEach[T any](o *object, key string, organise func(json.RawMessage) T) []T {
 	out := []T{}
 	var items []json.RawMessage
