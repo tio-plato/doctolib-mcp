@@ -11,6 +11,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/tio-plato/doctolib-mcp/internal/gate"
 	"github.com/tio-plato/doctolib-mcp/internal/tools"
@@ -190,6 +193,48 @@ func TestProfileOverBudget(t *testing.T) {
 	}
 }
 
+// The motives left out are listed in the result, so they count against its size too.
+func TestProfilePickedMotivesFitWithTheListOfTheRest(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.fake.handle(profilePath, func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, manyMotives())
+	})
+	cs := connect(t, e)
+
+	asked := make([]int64, 0, 400)
+	for id := int64(1001); id <= 1400; id++ {
+		asked = append(asked, id)
+	}
+	res, err := cs.CallTool(t.Context(), &mcp.CallToolParams{Name: "practitioner_profile", Arguments: map[string]any{
+		"profile_url": e.base + "/centre-dentaire/paris/centre-example", "motive_ids": asked,
+	}})
+	if err != nil || res.IsError {
+		t.Fatalf("%v %+v", err, res)
+	}
+	text := res.Content[0].(*mcp.TextContent).Text
+	if n := utf8.RuneCountInString(text); n > 36000 {
+		t.Errorf("result has %d characters, over 36,000", n)
+	}
+	var got struct {
+		Motives []struct {
+			ID int64 `json:"id"`
+		} `json:"motives"`
+		Remaining []int64 `json:"remaining_motive_ids"`
+	}
+	err = json.Unmarshal([]byte(text), &got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	given := make([]int64, 0, len(asked))
+	for _, m := range got.Motives {
+		given = append(given, m.ID)
+	}
+	if len(got.Remaining) == 0 || !slices.Equal(append(given, got.Remaining...), asked) {
+		t.Errorf("gave %v and left %v, want %v in two parts", given, got.Remaining, asked)
+	}
+}
+
 func TestProfileKeepsTheProfileTenMinutes(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -277,6 +322,25 @@ func bigProfile() string {
 	return `{"data": {
 		"places": [{"id": "practice-2001", "name": "Centre dentaire Exemple", "practice_ids": [2001]}],
 		"practitioners": [], "specialities": [{"id": 7, "name": "Dentiste"}],
+		"agendas": [` + strings.Join(agendas, ", ") + `],
+		"visit_motives": [` + strings.Join(motives, ", ") + `]}}`
+}
+
+// manyMotives is a centre with 400 motives, each offered by one agenda: about 340 characters a motive, so a result
+// holds about a hundred of them.
+func manyMotives() string {
+	agendas := make([]string, 0, 400)
+	motives := make([]string, 0, 400)
+	for id := 1; id <= 400; id++ {
+		agendas = append(agendas, fmt.Sprintf(`{"id": %d, "booking_temporary_disabled": false, "practice_id": 2001, `+
+			`"practitioner_id": null, "visit_motive_ids_by_practice_id": {"2001": [%d]}}`, id, 1000+id))
+		motives = append(
+			motives,
+			fmt.Sprintf(`{"id": %d, "name": "Consultation %d", "telehealth": false}`, 1000+id, 1000+id),
+		)
+	}
+	return `{"data": {
+		"places": [{"id": "practice-2001", "name": "Centre dentaire Exemple", "practice_ids": [2001]}],
 		"agendas": [` + strings.Join(agendas, ", ") + `],
 		"visit_motives": [` + strings.Join(motives, ", ") + `]}}`
 }

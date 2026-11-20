@@ -300,13 +300,16 @@ func (p *organisedProfile) pick(motiveIDs []int64) (*ProfileOutput, error) {
 	out := p.subset(nil)
 	for n := range wanted {
 		next := p.subset(wanted[:n+1])
+		// The ids left out are in the result too.
+		if n+1 < len(wanted) {
+			next.RemainingMotiveIDs = wanted[n+1:]
+		}
 		if n > 0 {
 			size, err := jsonChars(next)
 			if err != nil {
 				return nil, err
 			}
 			if size > profileBudget {
-				out.RemainingMotiveIDs = wanted[n:]
 				return out, nil
 			}
 		}
