@@ -369,6 +369,25 @@ func TestProfileCategoryOfAnotherTypeIsNull(t *testing.T) {
 	assertJSON(t, pluck(t, asJSON(t, out)["motives"], "category"), `["Contrôle", null, null]`)
 }
 
+// A place with several practices gives none of them as its practice_id: an offered can name any of them.
+func TestProfilePlaceOfSeveralPractices(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.fake.handle(profilePath, func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, `{"data": {"places": [
+			{"id": "practice-2001", "name": "Centre dentaire Exemple", "practice_ids": [2001, 2002]}]}}`)
+	})
+
+	in := tools.ProfileInput{ProfileURL: e.base + "/centre-dentaire/paris/centre-example"}
+	out, err := e.tools.Profile(t.Context(), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertJSON(t, out.Places, `[{"practice_id": null, "name": "Centre dentaire Exemple", "address": null,
+		"zipcode": null, "city": null, "lat": null, "lng": null, "phone": null,
+		"other": {"id": "practice-2001", "practice_ids": [2001, 2002]}}]`)
+}
+
 // What no agenda names can't be booked through this profile. Only agendas that all read tell what that is: were
 // Doctolib to rename agendas or practitioner_id, nothing would be left out.
 func TestProfileLeavesOutWhatNoAgendaNames(t *testing.T) {
