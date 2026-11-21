@@ -538,21 +538,28 @@ func TestSearchFieldOfAnotherTypeIsNull(t *testing.T) {
 
 func TestSearchBookableOnlineFollowsServices(t *testing.T) {
 	t.Parallel()
+	const services = `"services": ["profile", "onlineBooking"],`
 	query := `{"visit_motive_id": 3001, "agenda_ids": [1001], "practice_id": 2001}`
 	for name, tc := range map[string]struct {
-		services, bookable, query string
+		from, to, bookable, query string
 	}{
 		// Seen live: an onlineBooking object, but services without onlineBooking.
-		"lacks onlineBooking": {services: `"services": ["profile"],`, bookable: "false", query: "null"},
+		"lacks onlineBooking": {from: services, to: `"services": ["profile"],`, bookable: "false", query: "null"},
+		"empty":               {from: services, to: `"services": [],`, bookable: "false", query: "null"},
 		// Without a services list that reads, the onlineBooking object alone decides.
-		"absent": {services: ``, bookable: "true", query: query},
-		"null":   {services: `"services": null,`, bookable: "true", query: query},
+		"absent":     {from: services, to: ``, bookable: "true", query: query},
+		"null":       {from: services, to: `"services": null,`, bookable: "true", query: query},
+		"unreadable": {from: services, to: `"services": ["profile", 3],`, bookable: "true", query: query},
+		// services alone doesn't make a result bookable: it needs the onlineBooking object too.
+		"no onlineBooking object": {
+			from: `"onlineBooking": {"agendaIds": [1001, 1005], "telehealth": true, "bookableOrganizationSpecialities": []}`,
+			to:   `"onlineBooking": null`, bookable: "false", query: "null",
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			e := newEnv(t)
-			body := strings.Replace(string(readFile(t, "search.json")), `"services": ["profile", "onlineBooking"],`,
-				tc.services, 1)
+			body := strings.Replace(string(readFile(t, "search.json")), tc.from, tc.to, 1)
 			e.fake.handle(searchPath, func(w http.ResponseWriter, _ *http.Request) {
 				writeJSON(w, http.StatusPartialContent, body)
 			})
