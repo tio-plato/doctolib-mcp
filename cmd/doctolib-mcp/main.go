@@ -18,6 +18,9 @@ import (
 	"github.com/tio-plato/doctolib-mcp/internal/tools"
 )
 
+// version is set at build time with -ldflags "-X main.version=…".
+var version string
+
 func main() {
 	err := run()
 	if err != nil {
@@ -55,7 +58,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	server, err := tools.NewServer(t, version())
+	info, ok := debug.ReadBuildInfo()
+	server, err := tools.NewServer(t, serverVersion(version, info, ok))
 	if err != nil {
 		return err
 	}
@@ -66,8 +70,10 @@ func run() error {
 	return nil
 }
 
-func version() string {
-	info, ok := debug.ReadBuildInfo()
+func serverVersion(injected string, info *debug.BuildInfo, ok bool) string {
+	if injected != "" {
+		return injected
+	}
 	if !ok || info.Main.Version == "" {
 		return "devel"
 	}
