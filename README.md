@@ -69,16 +69,16 @@ To update, run the same commands again and restart the client.
 With Go or Nix, these work too:
 
 ```sh
-go install github.com/tio-plato/doctolib-mcp/cmd/doctolib-mcp@latest   # latest release
+go install github.com/tio-plato/doctolib-mcp/cmd/doctolib-mcp@latest   # latest tag
 nix run github:tio-plato/doctolib-mcp                                    # follows main
 ```
 
 ## Configuration
 
 `DOCTOLIB_MCP_CHROME_MAJOR` sets the Chrome major version in the User-Agent, e.g. `157`. Release archives and Nix
-builds use the version of nixpkgs' chromium when they were built; `go install` uses a built-in default. Either goes
-stale: if your install is old, set the variable or install again. Hermes and OpenClaw pass only a few variables to
-an MCP server, so set it under the server's `env` there.
+builds use the chromium version of the nixpkgs they were built with; `go install` uses a built-in default. Either
+goes stale: if your install is old, set the variable or install again. Hermes and OpenClaw pass only a few variables
+to an MCP server, so set it under the server's `env` there.
 
 ## Clients
 
@@ -115,7 +115,8 @@ openclaw mcp add doctolib --command /path/to/doctolib-mcp
 ```
 
 Other clients take the same `mcpServers` JSON. The rate-limit state needs no `env`: Hermes and OpenClaw both pass
-`HOME`, so it stays in `~/.local/state/doctolib-mcp`.
+`HOME`, so it stays in `~/.local/state/doctolib-mcp`. If you set `XDG_STATE_HOME`, add it to the `env` of clients
+that don't pass it on, such as OpenClaw, so that every client shares one state directory and its limits.
 
 ## Development
 
