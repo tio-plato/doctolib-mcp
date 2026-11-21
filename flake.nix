@@ -15,25 +15,32 @@
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
     in
     {
-      packages = forAllSystems (pkgs: {
-        default = pkgs.buildGoModule {
-          pname = "doctolib-mcp";
+      packages = forAllSystems (
+        pkgs:
+        let
           version = self.shortRev or self.dirtyShortRev or "dirty";
-          src = self;
-          vendorHash = "sha256-K8illBSpXyRfqoN88kpC662Jt9rL2D4gv+hIsxZQ9bg=";
-          # Keep the User-Agent's Chrome version in step with nixpkgs' chromium.
-          ldflags = [
-            "-s"
-            "-w"
-            "-X github.com/tio-plato/doctolib-mcp/internal/doctolib.defaultChromeMajor=${pkgs.lib.versions.major pkgs.chromium.version}"
-          ];
-          meta = {
-            description = "Read-only, anonymous MCP server for doctolib.fr";
-            homepage = "https://github.com/tio-plato/doctolib-mcp";
-            mainProgram = "doctolib-mcp";
+        in
+        {
+          default = pkgs.buildGoModule {
+            pname = "doctolib-mcp";
+            inherit version;
+            src = self;
+            vendorHash = "sha256-K8illBSpXyRfqoN88kpC662Jt9rL2D4gv+hIsxZQ9bg=";
+            # Keep the User-Agent's Chrome version in step with nixpkgs' chromium.
+            ldflags = [
+              "-s"
+              "-w"
+              "-X github.com/tio-plato/doctolib-mcp/internal/doctolib.defaultChromeMajor=${pkgs.lib.versions.major pkgs.chromium.version}"
+              "-X main.version=${version}"
+            ];
+            meta = {
+              description = "Read-only, anonymous MCP server for doctolib.fr";
+              homepage = "https://github.com/tio-plato/doctolib-mcp";
+              mainProgram = "doctolib-mcp";
+            };
           };
-        };
-      });
+        }
+      );
 
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShell {
