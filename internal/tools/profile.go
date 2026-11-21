@@ -266,10 +266,18 @@ func unwrap(inner, wrapper map[string]any) map[string]any {
 	return inner
 }
 
-// result is the whole profile if it fits in profileBudget, else the motive index; motiveIDs picks motives instead.
+// result is the whole profile if it fits in profileBudget, else the motive index; the profile's motives in motiveIDs
+// are picked instead. Ids that repeat or aren't the profile's motives are ignored.
 func (p *organisedProfile) result(motiveIDs []int64) (*ProfileOutput, error) {
-	if len(motiveIDs) > 0 {
-		return p.pick(motiveIDs)
+	motives := motiveSet(p.out.Motives)
+	var wanted []int64
+	for _, id := range motiveIDs {
+		if motives[id] && !slices.Contains(wanted, id) {
+			wanted = append(wanted, id)
+		}
+	}
+	if len(wanted) > 0 {
+		return p.pick(wanted)
 	}
 	n, err := jsonChars(p.out)
 	if err != nil {
@@ -293,17 +301,9 @@ func (p *organisedProfile) index() *ProfileOutput {
 	return &out
 }
 
-// pick puts the motives in, in the order asked, until one doesn't fit; the first always goes in. Ids that repeat or
-// aren't the profile's motives are ignored.
-func (p *organisedProfile) pick(motiveIDs []int64) (*ProfileOutput, error) {
-	motives := motiveSet(p.out.Motives)
-	var wanted []int64
-	for _, id := range motiveIDs {
-		if motives[id] && !slices.Contains(wanted, id) {
-			wanted = append(wanted, id)
-		}
-	}
-	out := p.subset(nil)
+// pick puts the motives of wanted in, in its order, until one doesn't fit; the first always goes in.
+func (p *organisedProfile) pick(wanted []int64) (*ProfileOutput, error) {
+	var out *ProfileOutput
 	for n := range wanted {
 		next := p.subset(wanted[:n+1])
 		// The ids left out are in the result too.
@@ -340,7 +340,7 @@ func (p *organisedProfile) subset(ids []int64) *ProfileOutput {
 	practitioners := map[int64]bool{}
 	for i := range p.agendas {
 		a := &p.agendas[i]
-		unknown := len(ids) > 0 && a.out.AgendaID != nil && a.byPractice == nil
+		unknown := a.out.AgendaID != nil && a.byPractice == nil
 		if !unknown && !slices.ContainsFunc(ids, a.lists) {
 			continue
 		}

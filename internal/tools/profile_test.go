@@ -247,6 +247,36 @@ func TestProfilePickedMotivesFitWithTheListOfTheRest(t *testing.T) {
 	}
 }
 
+// motive_ids that name no motive of this profile, such as another profile's, give what no motive_ids gives: the
+// whole profile, or the motive index when it doesn't fit.
+func TestProfileMotiveIDsOfNoMotive(t *testing.T) {
+	t.Parallel()
+	// A large centre is bigProfile, which doesn't fit; the other is the fixture.
+	for name, big := range map[string]bool{"a profile that fits": false, "a large centre": true} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+			if big {
+				e.fake.handle(profilePath, func(w http.ResponseWriter, _ *http.Request) {
+					writeJSON(w, http.StatusOK, bigProfile())
+				})
+			}
+			cs := connect(t, e)
+			profileURL := e.base + "/centre-dentaire/paris/centre-example"
+
+			without := callTool(t, cs, "practitioner_profile", map[string]any{"profile_url": profileURL})
+			got := callTool(t, cs, "practitioner_profile", map[string]any{
+				"profile_url": profileURL, "motive_ids": []int{4242, 4243},
+			})
+			want, err := json.Marshal(without)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertJSON(t, got, string(want))
+		})
+	}
+}
+
 // Without a motive to pick, the index is empty, but it still says the agendas were left out.
 func TestProfileIndexOfNoMotive(t *testing.T) {
 	t.Parallel()
@@ -460,13 +490,6 @@ func TestProfileLeavesOutWhatNoAgendaNames(t *testing.T) {
 			got := asJSON(t, out)
 			assertJSON(t, pluck(t, got["agendas"], "agenda_id"), `[1, 3]`)
 			assertJSON(t, pluck(t, got["practitioners"], "id"), `[6001]`)
-			// No motive, no agenda.
-			in.MotiveIDs = []int64{4242}
-			out, err = e.tools.Profile(t.Context(), in)
-			if err != nil {
-				t.Fatal(err)
-			}
-			assertJSON(t, out.Agendas, `[]`)
 		})
 	}
 }
