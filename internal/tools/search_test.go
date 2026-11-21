@@ -574,3 +574,89 @@ func TestSearchBookableOnlineFollowsServices(t *testing.T) {
 		})
 	}
 }
+
+func TestSearchNullAvailabilityQueryKeepsIDsInOther(t *testing.T) {
+	t.Parallel()
+	// What other keeps of the first result of search.json's booking objects when no availability_query is made.
+	kept := map[string]string{
+		"matchedVisitMotive": `{"agendaIds": [1001], "fee": null, "insuranceSector": {"split": false, "type": null}}`,
+		"onlineBooking":      `{"agendaIds": [1001, 1005], "bookableOrganizationSpecialities": []}`,
+		"references":         `{"id": 4001, "type": "public_profile", "practiceId": 2001}`,
+	}
+	for name, tc := range map[string]struct {
+		edits [][2]string       // applied to the first match in search.json, which is in the first result
+		other map[string]string // where other differs from kept
+	}{
+		"no onlineBooking object": {
+			edits: [][2]string{{
+				`"onlineBooking": {"agendaIds": [1001, 1005], "telehealth": true, "bookableOrganizationSpecialities": []}`,
+				`"onlineBooking": null`,
+			}},
+			other: map[string]string{"onlineBooking": `null`},
+		},
+		"no matchedVisitMotive object": {
+			edits: [][2]string{{
+				`"matchedVisitMotive": {"agendaIds": [1001], "allowNewPatients": true, "fee": null, "insuranceSector": {"split": false, "type": null}, "name": "Première consultation", "visitMotiveId": 3001}`,
+				`"matchedVisitMotive": null`,
+			}},
+			other: map[string]string{"matchedVisitMotive": `null`},
+		},
+		"visitMotiveId absent": {edits: [][2]string{{`, "visitMotiveId": 3001}`, `}`}}},
+		"visitMotiveId null":   {edits: [][2]string{{`"visitMotiveId": 3001`, `"visitMotiveId": null`}}},
+		"no references object": {
+			edits: [][2]string{{`"references": {"id": 4001, "type": "public_profile", "practiceId": 2001}`, `"references": null`}},
+			other: map[string]string{"references": `null`},
+		},
+		"practiceId null": {
+			edits: [][2]string{{`"practiceId": 2001`, `"practiceId": null`}},
+			other: map[string]string{"references": `{"id": 4001, "type": "public_profile", "practiceId": null}`},
+		},
+		"practiceId unreadable": {
+			edits: [][2]string{{`"practiceId": 2001`, `"practiceId": "2001"`}},
+			other: map[string]string{"references": `{"id": 4001, "type": "public_profile", "practiceId": "2001"}`},
+		},
+		"agendaIds empty": {
+			edits: [][2]string{{`"agendaIds": [1001],`, `"agendaIds": [],`}, {`"agendaIds": [1001, 1005],`, `"agendaIds": [],`}},
+			other: map[string]string{
+				"matchedVisitMotive": `{"agendaIds": [], "fee": null, "insuranceSector": {"split": false, "type": null}}`,
+				"onlineBooking":      `{"agendaIds": [], "bookableOrganizationSpecialities": []}`,
+			},
+		},
+		"agendaIds unreadable": {
+			edits: [][2]string{
+				{`"agendaIds": [1001],`, `"agendaIds": ["1001"],`},
+				{`"agendaIds": [1001, 1005],`, `"agendaIds": ["1001", "1005"],`},
+			},
+			other: map[string]string{
+				"matchedVisitMotive": `{"agendaIds": ["1001"], "fee": null, "insuranceSector": {"split": false, "type": null}}`,
+				"onlineBooking":      `{"agendaIds": ["1001", "1005"], "bookableOrganizationSpecialities": []}`,
+			},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+			body := string(readFile(t, "search.json"))
+			for _, edit := range tc.edits {
+				body = strings.Replace(body, edit[0], edit[1], 1)
+			}
+			e.fake.handle(searchPath, func(w http.ResponseWriter, _ *http.Request) {
+				writeJSON(w, http.StatusPartialContent, body)
+			})
+
+			out, err := e.tools.Search(t.Context(), tools.SearchInput{Query: "dentiste", Place: "75001"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if q := out.Results[0].AvailabilityQuery; q != nil {
+				t.Errorf("availability_query is %+v, want null", *q)
+			}
+			for key, want := range kept {
+				if w, ok := tc.other[key]; ok {
+					want = w
+				}
+				assertJSON(t, out.Results[0].Other[key], want)
+			}
+		})
+	}
+}
