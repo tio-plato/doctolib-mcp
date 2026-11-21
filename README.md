@@ -114,9 +114,10 @@ OpenClaw:
 openclaw mcp add doctolib --command /path/to/doctolib-mcp
 ```
 
-Other clients take the same `mcpServers` JSON. The rate-limit state needs no `env`: Hermes and OpenClaw both pass
-`HOME`, so it stays in `~/.local/state/doctolib-mcp`. If you set `XDG_STATE_HOME`, add it to the `env` of clients
-that don't pass it on, such as OpenClaw, so that every client shares one state directory and its limits.
+Other clients take the same `mcpServers` JSON. The rate-limit state needs no `env` unless you set `XDG_STATE_HOME`:
+Hermes and OpenClaw both pass `HOME`, so it stays in `~/.local/state/doctolib-mcp`. If you do set it, add it to the
+`env` of clients that don't pass it on, such as OpenClaw, so that every client shares one state directory and its
+limits.
 
 ## Development
 
