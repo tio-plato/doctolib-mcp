@@ -64,6 +64,11 @@
         in
         {
           inherit package;
+          # The linker ignores a -X for a symbol that doesn't exist, so ask the program itself.
+          version = pkgs.runCommand "doctolib-mcp-version" { } ''
+            ${pkgs.bash}/bin/bash ${./scripts/smoke.sh} ${pkgs.lib.getExe package} ${package.version}
+            touch $out
+          '';
           # Reuses the package's vendored modules, so the lint runs offline in the sandbox.
           lint = package.overrideAttrs (old: {
             pname = "doctolib-mcp-lint";
