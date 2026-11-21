@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: doctolib-mcp
+
+before:
+  hooks:
+    - scripts/third-party-licenses.sh
+
+builds:
+  - main: ./cmd/doctolib-mcp
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    # The default ldflags also set main.version, but without the leading v.
+    # NIXPKGS_CHROME_MAJOR comes from the devShell, as in the Nix package.
+    ldflags:
+      - -s -w -X main.version=v{{ .Version }}
+      - -X github.com/tio-plato/doctolib-mcp/internal/doctolib.defaultChromeMajor={{ .Env.NIXPKGS_CHROME_MAJOR }}
+
+archives:
+  # No version in the name, so releases/latest/download/<name> stays valid.
+  - name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    files:
+      - LICENSE
+      - README.md
+      - src: build/THIRD_PARTY_LICENSES
+        strip_parent: true
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+release:
+  # CI publishes it once the smoke test passes on every platform.
+  draft: true
+  # A rerun replaces the draft instead of adding a second one for the tag.
+  replace_existing_draft: true

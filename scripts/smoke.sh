@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Usage: scripts/smoke.sh <binary> <expected version>
+# Starts the server over stdio and checks the version it reports and that it
+# answers tools/list. Sends no request to Doctolib.
+set -euo pipefail
+
+if (($# != 2)); then
+	echo "usage: $0 <binary> <expected version>" >&2
+	exit 2
+fi
+bin=$1
+want=$2
+
+log=$(mktemp)
+trap 'rm -f "$log"' EXIT
+status=0
+{
+	printf '%s\n' \
+		'{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}' \
+		'{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+		'{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+	# Closing stdin drops the replies still in flight: wait for the last one, 30 s at most.
+	for ((i = 0; i < 150; i++)); do
+		grep -q '"id":2,' "$log" && break
+		sleep 0.2
+	done
+} | "$bin" >"$log" 2>&1 || status=$?
+out=$(<"$log")
+
+fail() {
+	echo "smoke: $bin: $*" >&2
+	printf '%s\n' "$out" >&2
+	exit 1
+}
+
+((status == 0)) || fail "exit status $status"
+got=$(sed -n 's/.*"serverInfo":{[^}]*"version":"\([^"]*\)".*/\1/p' <<<"$out")
+[[ $got == "$want" ]] || fail "version ${got:-missing}, want $want"
+grep -q '"id":2,"result":{.*"tools":\[' <<<"$out" || fail "no tools/list result"
+echo "smoke: $bin reports $got and lists its tools"

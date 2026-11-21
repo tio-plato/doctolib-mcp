@@ -13,6 +13,8 @@
         "aarch64-darwin"
       ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
+      # Reads only the version attribute, so chromium itself is never built or fetched.
+      chromeMajor = pkgs: pkgs.lib.versions.major pkgs.chromium.version;
     in
     {
       packages = forAllSystems (
@@ -30,7 +32,7 @@
             ldflags = [
               "-s"
               "-w"
-              "-X github.com/tio-plato/doctolib-mcp/internal/doctolib.defaultChromeMajor=${pkgs.lib.versions.major pkgs.chromium.version}"
+              "-X github.com/tio-plato/doctolib-mcp/internal/doctolib.defaultChromeMajor=${chromeMajor pkgs}"
               "-X main.version=${version}"
             ];
             meta = {
@@ -48,7 +50,10 @@
             pkgs.go
             pkgs.gopls
             pkgs.golangci-lint
+            pkgs.goreleaser
           ];
+          # For .goreleaser.yaml: release binaries carry the same Chrome version as the Nix package.
+          NIXPKGS_CHROME_MAJOR = chromeMajor pkgs;
         };
       });
 
