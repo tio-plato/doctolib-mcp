@@ -23,7 +23,7 @@ const DefaultBaseURL = "https://www.doctolib.fr"
 
 const ChromeMajorEnv = "DOCTOLIB_MCP_CHROME_MAJOR"
 
-var defaultChromeMajor = "157" //nolint:gochecknoglobals // flake.nix sets nixpkgs' chromium version with -ldflags -X
+var defaultChromeMajor = "157" //nolint:gochecknoglobals // flake.nix and .goreleaser.yaml set it from nixpkgs' chromium
 
 const (
 	requestTimeout = 30 * time.Second
