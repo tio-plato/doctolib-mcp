@@ -496,11 +496,22 @@ func TestSearchSendsUnknownLanguageCodesOnce(t *testing.T) {
 	}
 }
 
-func TestSearchLabelsUnknownSectorWithNull(t *testing.T) {
-	t.Parallel()
+// firstOnlineBooking is the onlineBooking field of the first result in search.json.
+const firstOnlineBooking = `"onlineBooking": {"agendaIds": [1001, 1005], "telehealth": true, "bookableOrganizationSpecialities": []}`
+
+// searchWithEdits searches dentiste in 75001 against search.json, each edit replacing the first match of edit[0] with
+// edit[1] in turn.
+func searchWithEdits(t *testing.T, edits ...[2]string) *tools.SearchOutput {
+	t.Helper()
 	e := newEnv(t)
-	body := strings.Replace(string(readFile(t, "search.json")), `"regulationSector": "contracted",`,
-		`"regulationSector": "testOnlyUnknownSector",`, 1)
+	body := string(readFile(t, "search.json"))
+	for _, edit := range edits {
+		before, after, found := strings.Cut(body, edit[0])
+		if !found {
+			t.Fatalf("search.json lacks the text to replace: %s", edit[0])
+		}
+		body = before + edit[1] + after
+	}
 	e.fake.handle(searchPath, func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusPartialContent, body)
 	})
@@ -509,23 +520,23 @@ func TestSearchLabelsUnknownSectorWithNull(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return out
+}
+
+func TestSearchLabelsUnknownSectorWithNull(t *testing.T) {
+	t.Parallel()
+	out := searchWithEdits(t, [2]string{
+		`"regulationSector": "contracted",`, `"regulationSector": "testOnlyUnknownSector",`,
+	})
 	assertJSON(t, out.Results[0].Sector, `{"code": "testOnlyUnknownSector", "label": null}`)
 }
 
 func TestSearchFieldOfAnotherTypeIsNull(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t)
-	body := string(readFile(t, "search.json"))
-	body = strings.Replace(body, `"visitMotiveId": 3001`, `"visitMotiveId": "3001"`, 1)
-	body = strings.Replace(body, `"lat": 48.839`, `"lat": "48.839"`, 1)
-	e.fake.handle(searchPath, func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusPartialContent, body)
-	})
-
-	out, err := e.tools.Search(t.Context(), tools.SearchInput{Query: "dentiste", Place: "75001"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	out := searchWithEdits(t,
+		[2]string{`"visitMotiveId": 3001`, `"visitMotiveId": "3001"`},
+		[2]string{`"lat": 48.839`, `"lat": "48.839"`},
+	)
 	got := asJSON(t, out.Results[0])
 	// Null: not an availability_query for motive 0 or a distance from latitude 0.
 	for _, key := range []string{"availability_query", "lat", "distance_km"} {
@@ -552,22 +563,12 @@ func TestSearchBookableOnlineFollowsServices(t *testing.T) {
 		"unreadable": {from: services, to: `"services": ["profile", 3],`, bookable: "true", query: query},
 		// services alone doesn't make a result bookable: it needs the onlineBooking object too.
 		"no onlineBooking object": {
-			from: `"onlineBooking": {"agendaIds": [1001, 1005], "telehealth": true, "bookableOrganizationSpecialities": []}`,
-			to:   `"onlineBooking": null`, bookable: "false", query: "null",
+			from: firstOnlineBooking, to: `"onlineBooking": null`, bookable: "false", query: "null",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			e := newEnv(t)
-			body := strings.Replace(string(readFile(t, "search.json")), tc.from, tc.to, 1)
-			e.fake.handle(searchPath, func(w http.ResponseWriter, _ *http.Request) {
-				writeJSON(w, http.StatusPartialContent, body)
-			})
-
-			out, err := e.tools.Search(t.Context(), tools.SearchInput{Query: "dentiste", Place: "75001"})
-			if err != nil {
-				t.Fatal(err)
-			}
+			out := searchWithEdits(t, [2]string{tc.from, tc.to})
 			got := asJSON(t, out.Results[0])
 			assertJSON(t, got["bookable_online"], tc.bookable)
 			assertJSON(t, got["availability_query"], tc.query)
@@ -588,10 +589,7 @@ func TestSearchNullAvailabilityQueryKeepsIDsInOther(t *testing.T) {
 		other map[string]string // where other differs from kept
 	}{
 		"no onlineBooking object": {
-			edits: [][2]string{{
-				`"onlineBooking": {"agendaIds": [1001, 1005], "telehealth": true, "bookableOrganizationSpecialities": []}`,
-				`"onlineBooking": null`,
-			}},
+			edits: [][2]string{{firstOnlineBooking, `"onlineBooking": null`}},
 			other: map[string]string{"onlineBooking": `null`},
 		},
 		"no matchedVisitMotive object": {
@@ -635,19 +633,7 @@ func TestSearchNullAvailabilityQueryKeepsIDsInOther(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			e := newEnv(t)
-			body := string(readFile(t, "search.json"))
-			for _, edit := range tc.edits {
-				body = strings.Replace(body, edit[0], edit[1], 1)
-			}
-			e.fake.handle(searchPath, func(w http.ResponseWriter, _ *http.Request) {
-				writeJSON(w, http.StatusPartialContent, body)
-			})
-
-			out, err := e.tools.Search(t.Context(), tools.SearchInput{Query: "dentiste", Place: "75001"})
-			if err != nil {
-				t.Fatal(err)
-			}
+			out := searchWithEdits(t, tc.edits...)
 			if q := out.Results[0].AvailabilityQuery; q != nil {
 				t.Errorf("availability_query is %+v, want null", *q)
 			}
