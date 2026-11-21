@@ -32,54 +32,95 @@ Doctolib fields the server doesn't map are kept as they are under `other`. A few
 
 ## Install
 
+Give your agent this repository's URL: it can follow the steps below on Linux or macOS, x86_64 or ARM, without Go
+or Nix. Linux and macOS only: the rate limiter uses `flock`. On Windows, install it in WSL.
+
+Each release has one archive per system, `doctolib-mcp_<os>_<arch>.tar.gz`, where `<os>` is `linux` or `darwin` and
+`<arch>` is `amd64` for x86_64 or `arm64` for aarch64 and arm64. The commands below pick the archive, download it and
+`checksums.txt` from the latest release, stop if the checksum doesn't match, and print the program's absolute path.
+
+Into `~/.local/bin`:
+
 ```sh
-go install github.com/tio-plato/doctolib-mcp/cmd/doctolib-mcp@latest
+sh -eu <<'EOF'
+case $(uname -s) in Linux) os=linux ;; Darwin) os=darwin ;; *) echo "unsupported: $(uname -s)" >&2; exit 1 ;; esac
+case $(uname -m) in x86_64) arch=amd64 ;; aarch64 | arm64) arch=arm64 ;; *) echo "unsupported: $(uname -m)" >&2; exit 1 ;; esac
+file=doctolib-mcp_${os}_${arch}.tar.gz
+url=https://github.com/tio-plato/doctolib-mcp/releases/latest/download
+tmp=$(mktemp -d)
+cd "$tmp"
+curl -fsSLO "$url/$file"
+curl -fsSLO "$url/checksums.txt"
+line=$(grep "  $file\$" checksums.txt) || { echo "$file is not in checksums.txt" >&2; exit 1; }
+if command -v sha256sum >/dev/null; then
+  echo "$line" | sha256sum -c -
+else
+  echo "$line" | shasum -a 256 -c -
+fi
+mkdir -p "$HOME/.local/bin"
+tar -xzf "$file" -C "$HOME/.local/bin" doctolib-mcp
+rm -rf "$tmp"
+echo "$HOME/.local/bin/doctolib-mcp"
+EOF
 ```
 
-or with Nix:
+To update, run the same commands again and restart the client.
+
+With Go or Nix, these work too:
 
 ```sh
-nix run github:tio-plato/doctolib-mcp
+go install github.com/tio-plato/doctolib-mcp/cmd/doctolib-mcp@latest   # latest release
+nix run github:tio-plato/doctolib-mcp                                    # follows main
 ```
-
-Linux and macOS only: the rate limiter uses `flock`.
 
 ## Configuration
 
-`DOCTOLIB_MCP_CHROME_MAJOR` sets the Chrome major version in the User-Agent, e.g. `157`. Nix builds use nixpkgs'
-chromium version; `go install` uses a built-in default that goes stale, so set it if your build is old.
+`DOCTOLIB_MCP_CHROME_MAJOR` sets the Chrome major version in the User-Agent, e.g. `157`. Release archives and Nix
+builds use the version of nixpkgs' chromium when they were built; `go install` uses a built-in default. Either goes
+stale: if your install is old, set the variable or install again. Hermes and OpenClaw pass only a few variables to
+an MCP server, so set it under the server's `env` there.
 
 ## Clients
+
+Use the absolute path the install printed: the client doesn't always have `~/.local/bin` in its `PATH`.
 
 Claude Code:
 
 ```sh
-claude mcp add doctolib -- doctolib-mcp
+claude mcp add doctolib -- /path/to/doctolib-mcp
 ```
 
-Claude Desktop, in `claude_desktop_config.json` (use the full path if `doctolib-mcp` isn't on Claude Desktop's
-`PATH`):
+Claude Desktop, in `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
-    "doctolib": {"command": "doctolib-mcp"}
+    "doctolib": {"command": "/path/to/doctolib-mcp"}
   }
 }
 ```
 
-Hermes, in `config.yaml`:
+Hermes, in `~/.hermes/config.yaml`:
 
 ```yaml
 mcp_servers:
   doctolib:
-    command: doctolib-mcp
+    command: /path/to/doctolib-mcp
 ```
+
+OpenClaw:
+
+```sh
+openclaw mcp add doctolib --command /path/to/doctolib-mcp
+```
+
+Other clients take the same `mcpServers` JSON. The rate-limit state needs no `env`: Hermes and OpenClaw both pass
+`HOME`, so it stays in `~/.local/state/doctolib-mcp`.
 
 ## Development
 
 ```sh
-nix develop       # Go, gopls, golangci-lint
+nix develop       # Go, gopls, golangci-lint, GoReleaser
 nix flake check   # build, tests, golangci-lint
 ```
 
