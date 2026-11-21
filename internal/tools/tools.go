@@ -172,7 +172,7 @@ const searchDescription = `Doctolib (France): search practitioners near a French
 Read-only, doctolib.fr only. It never books: give the user a result's profile_url to book there.
 Results are sorted by distance and can lie outside the area. distance_km is the straight-line distance from searched_location; in_area is true when the result's postcode is one of place.postcodes.
 Doctolib silently ignores a filter the speciality doesn't offer, such as telehealth for dentists, so read filter_warnings before trusting a filtered page. available_within_days can't be checked from the results; the availability tool shows the actual slots.
-Pass a result's availability_query to availability and its profile_url to practitioner_profile. availability_query is null when the result can't be booked online (bookable_online false). For a centre it can miss some agendas: practitioner_profile's offered has all those Doctolib's booking pages use.
+Pass a result's availability_query to availability and its profile_url to practitioner_profile. availability_query is null when bookable_online is false, when matched_motive or its id is null, or when Doctolib gives no practice id, or no agenda ids, that can be read. For a centre it can miss some agendas. When it is null with bookable_online true, or for a centre, practitioner_profile's offered has all the queries Doctolib's booking pages use.
 allow_new_patients is Doctolib's flag on matched_motive. false probably means that motive takes no new patients (inferred, not verified). It isn't a verdict: check practitioner_profile and availability.
 other holds the Doctolib fields the server doesn't map, under their original names.
 ` + blockedRule
