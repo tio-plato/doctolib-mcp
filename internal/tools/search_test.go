@@ -535,3 +535,35 @@ func TestSearchFieldOfAnotherTypeIsNull(t *testing.T) {
 	}
 	assertJSON(t, got["matched_motive"], `{"id": null, "name": "Première consultation"}`)
 }
+
+func TestSearchBookableOnlineFollowsServices(t *testing.T) {
+	t.Parallel()
+	query := `{"visit_motive_id": 3001, "agenda_ids": [1001], "practice_id": 2001}`
+	for name, tc := range map[string]struct {
+		services, bookable, query string
+	}{
+		// Seen live: an onlineBooking object, but services without onlineBooking.
+		"lacks onlineBooking": {services: `"services": ["profile"],`, bookable: "false", query: "null"},
+		// Without a services list that reads, the onlineBooking object alone decides.
+		"absent": {services: ``, bookable: "true", query: query},
+		"null":   {services: `"services": null,`, bookable: "true", query: query},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+			body := strings.Replace(string(readFile(t, "search.json")), `"services": ["profile", "onlineBooking"],`,
+				tc.services, 1)
+			e.fake.handle(searchPath, func(w http.ResponseWriter, _ *http.Request) {
+				writeJSON(w, http.StatusPartialContent, body)
+			})
+
+			out, err := e.tools.Search(t.Context(), tools.SearchInput{Query: "dentiste", Place: "75001"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := asJSON(t, out.Results[0])
+			assertJSON(t, got["bookable_online"], tc.bookable)
+			assertJSON(t, got["availability_query"], tc.query)
+		})
+	}
+}

@@ -292,7 +292,8 @@ func organiseBooking(o *object, p *Practitioner) {
 	online := o.sub("onlineBooking")
 	matched := o.sub("matchedVisitMotive")
 	refs := o.sub("references")
-	p.BookableOnline = online != nil
+	bookable := online != nil && offersOnlineBooking(o)
+	p.BookableOnline = bookable
 	if online != nil {
 		online.take("telehealth", &p.Telehealth)
 	}
@@ -305,11 +306,11 @@ func organiseBooking(o *object, p *Practitioner) {
 		motiveID = p.MatchedMotive.ID
 	}
 	var practiceID *int64
-	if refs == nil || !refs.peek("practiceId", &practiceID) || practiceID == nil || motiveID == nil || online == nil {
+	if refs == nil || !refs.peek("practiceId", &practiceID) || practiceID == nil || motiveID == nil || !bookable {
 		return
 	}
-	// The agendas come from the matched motive (not nil: motiveID came from it), else from onlineBooking, which lists
-	// every agenda of the speciality there: the same slots from a longer list.
+	// The agendas come from the matched motive (not nil: motiveID came from it), else from onlineBooking (not nil:
+	// bookable needs it), which lists every agenda of the speciality there: the same slots from a longer list.
 	var agendas []int64
 	from := matched
 	if !matched.peek("agendaIds", &agendas) || len(agendas) == 0 {
@@ -321,6 +322,14 @@ func organiseBooking(o *object, p *Practitioner) {
 	from.drop("agendaIds")
 	refs.drop("practiceId")
 	p.AvailabilityQuery = &AvailabilityQuery{VisitMotiveID: *motiveID, AgendaIDs: agendas, PracticeID: *practiceID}
+}
+
+// offersOnlineBooking reads Doctolib's services, which can leave out onlineBooking where the result still has an
+// onlineBooking object. Without a list that reads, the object alone decides. Like type, services stays in other.
+func offersOnlineBooking(o *object) bool {
+	var services []string
+	o.peek("services", &services)
+	return services == nil || slices.Contains(services, "onlineBooking")
 }
 
 func deref(s *string) string {
