@@ -77,6 +77,8 @@
               runHook preBuild
               export HOME=$TMPDIR GOLANGCI_LINT_CACHE=$TMPDIR/golangci-lint
               golangci-lint run ./...
+              # Linux skips the _windows.go files, and this also type-checks the module for Windows.
+              GOOS=windows golangci-lint run ./...
               runHook postBuild
             '';
             doCheck = false;
