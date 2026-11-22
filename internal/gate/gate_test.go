@@ -303,3 +303,20 @@ func TestDefaultDirTakesOnlyAnAbsoluteXDGStateHome(t *testing.T) {
 		}
 	}
 }
+
+func TestDefaultDirRefusesARelativeHome(t *testing.T) {
+	t.Setenv("HOME", "home")
+	t.Setenv("USERPROFILE", "home")
+	t.Setenv("XDG_STATE_HOME", "")
+	got, err := gate.DefaultDir()
+	if err == nil {
+		t.Errorf("relative home: DefaultDir() = %q, nil; want an error", got)
+	}
+	// An absolute XDG_STATE_HOME doesn't need the home directory.
+	xdg := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", xdg)
+	got, err = gate.DefaultDir()
+	if want := filepath.Join(xdg, "doctolib-mcp"); err != nil || got != want {
+		t.Errorf("relative home, XDG_STATE_HOME=%q: DefaultDir() = %q, %v; want %q", xdg, got, err, want)
+	}
+}

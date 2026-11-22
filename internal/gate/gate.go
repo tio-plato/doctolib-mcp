@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 )
 
@@ -59,8 +60,9 @@ func New(c Config) *Gate {
 	return g
 }
 
-// DefaultDir ignores a relative XDG_STATE_HOME, as the XDG Base Directory spec requires: resolved against each
-// process's working directory, it would give every client its own limits and block marker.
+// DefaultDir ignores a relative XDG_STATE_HOME, as the XDG Base Directory spec requires, and refuses a relative
+// home directory, for which there is no other place to go: resolved against each process's working directory,
+// either would give every client its own limits and block marker.
 func DefaultDir() (string, error) {
 	if base := os.Getenv("XDG_STATE_HOME"); filepath.IsAbs(base) {
 		return filepath.Join(base, "doctolib-mcp"), nil
@@ -68,6 +70,14 @@ func DefaultDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("find the state directory: %w", err)
+	}
+	if !filepath.IsAbs(home) {
+		// Named as os.UserHomeDir names the variable it reads.
+		env := "$HOME"
+		if runtime.GOOS == "windows" {
+			env = "%userprofile%"
+		}
+		return "", fmt.Errorf("find the state directory: %s is a relative path: %q", env, home)
 	}
 	return filepath.Join(home, ".local", "state", "doctolib-mcp"), nil
 }
