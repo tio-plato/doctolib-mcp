@@ -119,25 +119,27 @@ func (t *Tools) Profile(ctx context.Context, in ProfileInput) (*ProfileOutput, e
 	return p.result(in.MotiveIDs)
 }
 
-// profileResponse sends no request for a kept profile, but still stops at the block marker: every Doctolib tool
+// profileResponse sends no request for a kept answer, but still stops at the block marker: every Doctolib tool
 // stays off while it is there.
 func (t *Tools) profileResponse(ctx context.Context, slug string) ([]byte, error) {
-	if raw, ok := t.profiles.get(slug, t.now()); ok {
+	if k, ok := t.profiles.get(slug, t.now()); ok {
 		err := t.doctolib.Gate().CheckMarker()
 		if err != nil {
 			return nil, fmt.Errorf("read profile: %w", err)
 		}
-		return raw, nil
+		return k.raw, k.err
 	}
 	raw, err := t.doctolib.Get(ctx, profilePath, "profile_slug="+url.QueryEscape(slug)+"&locale=fr")
 	var status *doctolib.StatusError
 	if errors.As(err, &status) && status.Status == http.StatusGone {
-		return nil, fmt.Errorf("read profile %q: %w: %w", slug, errNoOnlineBooking, err)
+		gone := fmt.Errorf("read profile %q: %w: %w", slug, errNoOnlineBooking, err)
+		t.profiles.put(slug, keptProfile{raw: nil, err: gone, fetched: t.now()})
+		return nil, gone
 	}
 	if err != nil {
 		return nil, fmt.Errorf("read profile: %w", err)
 	}
-	t.profiles.put(slug, raw, t.now())
+	t.profiles.put(slug, keptProfile{raw: raw, err: nil, fetched: t.now()})
 	return raw, nil
 }
 
@@ -154,7 +156,8 @@ func profileSlug(profileURL string) (string, error) {
 	return slug, nil
 }
 
-// profileStore keeps Doctolib's responses by profile slug, in this process's memory only.
+// profileStore keeps Doctolib's answers by profile slug, in this process's memory only: a profile, or the 410 the
+// profile endpoint gives for a profile with no online booking.
 type profileStore struct {
 	mu   sync.Mutex
 	kept map[string]keptProfile
@@ -162,6 +165,7 @@ type profileStore struct {
 
 type keptProfile struct {
 	raw     []byte
+	err     error
 	fetched time.Time
 }
 
@@ -169,18 +173,18 @@ func newProfileStore() *profileStore {
 	return &profileStore{mu: sync.Mutex{}, kept: map[string]keptProfile{}}
 }
 
-func (s *profileStore) get(slug string, now time.Time) ([]byte, bool) {
+func (s *profileStore) get(slug string, now time.Time) (keptProfile, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	k, ok := s.kept[slug]
 	if !ok || now.Sub(k.fetched) >= profileKeep {
-		return nil, false
+		return keptProfile{}, false
 	}
-	return k.raw, true
+	return k, true
 }
 
-// put makes room by dropping the profile fetched first.
-func (s *profileStore) put(slug string, raw []byte, now time.Time) {
+// put makes room by dropping the answer fetched first.
+func (s *profileStore) put(slug string, k keptProfile) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.kept[slug]; !ok && len(s.kept) >= profilesKept {
@@ -189,7 +193,7 @@ func (s *profileStore) put(slug string, raw []byte, now time.Time) {
 		})
 		delete(s.kept, oldest)
 	}
-	s.kept[slug] = keptProfile{raw: raw, fetched: now}
+	s.kept[slug] = k
 }
 
 // organisedProfile is the whole profile, before it is cut to fit a result.

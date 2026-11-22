@@ -292,43 +292,75 @@ func TestProfileIndexOfNoMotive(t *testing.T) {
 	assertJSON(t, got["motive_index"], `[]`)
 }
 
-func TestProfileKeepsTheProfileTenMinutes(t *testing.T) {
+// A profile and a 410 are kept ten minutes; any other failure may pass, so the next call asks again.
+func TestProfileKeepsAnAnswerTenMinutes(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t)
-	in := tools.ProfileInput{ProfileURL: e.base + "/dentiste/paris/ada-example"}
-
-	for i, step := range []struct {
-		wait     time.Duration
-		requests int
+	for name, tc := range map[string]struct {
+		// answer replaces the fake's profile.json when set.
+		answer http.HandlerFunc
+		// prefix is the error's, "" for a profile.
+		prefix string
+		// requests is the count after each call.
+		requests []int
 	}{
-		{0, 1},
-		{9*time.Minute + 59*time.Second, 1},
-		// Ten minutes after the request: the kept profile is too old.
-		{time.Second, 2},
+		"profile": {answer: nil, prefix: "", requests: []int{1, 1, 2}},
+		"no online booking": {answer: func(w http.ResponseWriter, _ *http.Request) {
+			writeJSON(w, http.StatusGone, `{}`)
+		}, prefix: "no_online_booking", requests: []int{1, 1, 2}},
+		"server error": {answer: func(w http.ResponseWriter, _ *http.Request) {
+			writeJSON(w, http.StatusInternalServerError, `{"error": "internal"}`)
+		}, prefix: "error", requests: []int{1, 2, 3}},
 	} {
-		e.now = e.now.Add(step.wait)
-		_, err := e.tools.Profile(t.Context(), in)
-		if err != nil {
-			t.Fatalf("call %d: %v", i+1, err)
-		}
-		if n := len(e.fake.doctolibRequests()); n != step.requests {
-			t.Errorf("call %d: %d Doctolib requests in all, want %d", i+1, n, step.requests)
-		}
-	}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+			if tc.answer != nil {
+				e.fake.handle(profilePath, tc.answer)
+			}
+			in := tools.ProfileInput{ProfileURL: e.base + "/dentiste/paris/ada-example"}
 
-	// The kept profile is fresh, but every Doctolib tool stays off while the marker is there.
-	_, err := e.gate.Block(profilePath, http.StatusForbidden, "Votre requête est bloquée !")
+			// The third call is ten minutes after the first request: a kept answer is too old by then.
+			texts := make([]string, 0, 3)
+			for i, wait := range []time.Duration{0, 9*time.Minute + 59*time.Second, time.Second} {
+				e.now = e.now.Add(wait)
+				_, err := e.tools.Profile(t.Context(), in)
+				texts = append(texts, checkProfileCall(t, e, i+1, err, tc.prefix, tc.requests[i]))
+			}
+			if texts[1] != texts[0] {
+				t.Errorf("call 2 got %q, want call 1's %q", texts[1], texts[0])
+			}
+
+			// A kept answer is fresh, but every Doctolib tool stays off while the marker is there.
+			_, err := e.gate.Block(profilePath, http.StatusForbidden, "Votre requête est bloquée !")
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = e.tools.Profile(t.Context(), in)
+			var blocked *gate.BlockedError
+			if !errors.As(err, &blocked) {
+				t.Errorf("got %v, want a block error", err)
+			}
+			if n := len(e.fake.doctolibRequests()); n != tc.requests[2] {
+				t.Errorf("%d Doctolib requests in all, want %d", n, tc.requests[2])
+			}
+		})
+	}
+}
+
+// checkProfileCall reports a call whose request count or outcome isn't the one wanted; prefix "" wants a profile.
+// It returns the error's text, "" for a profile.
+func checkProfileCall(t *testing.T, e *env, call int, err error, prefix string, requests int) string {
+	t.Helper()
+	if n := len(e.fake.doctolibRequests()); n != requests {
+		t.Errorf("call %d: %d Doctolib requests in all, want %d", call, n, requests)
+	}
+	if prefix != "" {
+		return assertErrorPrefix(t, err, prefix)
+	}
 	if err != nil {
-		t.Fatal(err)
+		t.Errorf("call %d: %v", call, err)
 	}
-	_, err = e.tools.Profile(t.Context(), in)
-	var blocked *gate.BlockedError
-	if !errors.As(err, &blocked) {
-		t.Errorf("got %v, want a block error", err)
-	}
-	if n := len(e.fake.doctolibRequests()); n != 2 {
-		t.Errorf("%d Doctolib requests in all, want 2", n)
-	}
+	return ""
 }
 
 func TestProfileKeepsBothFieldsOfTheSameName(t *testing.T) {
