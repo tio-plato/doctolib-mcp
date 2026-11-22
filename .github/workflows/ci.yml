@@ -32,9 +32,8 @@ jobs:
       - name: Check the archives
         run: |
           # The names README.md downloads from releases/latest/download.
-          want=$(printf '%s\n' checksums.txt doctolib-mcp_{linux,darwin}_{amd64,arm64}.tar.gz | sort)
-          # With nullglob, *.zip lists only a stray archive in a format README.md never downloads.
-          shopt -s nullglob
+          want=$(printf '%s\n' checksums.txt doctolib-mcp_{linux,darwin}_{amd64,arm64}.tar.gz \
+            doctolib-mcp_windows_{amd64,arm64}.zip | sort)
           got=$(cd dist && printf '%s\n' *.tar.gz *.zip checksums.txt | sort)
           [[ $got == "$want" ]] || { printf 'unexpected archives:\n%s\n' "$got" >&2; exit 1; }
           tar -xzf dist/doctolib-mcp_linux_amd64.tar.gz -C "$RUNNER_TEMP" doctolib-mcp
@@ -65,10 +64,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - { runner: ubuntu-latest, archive: doctolib-mcp_linux_amd64.tar.gz }
-          - { runner: ubuntu-24.04-arm, archive: doctolib-mcp_linux_arm64.tar.gz }
-          - { runner: macos-15-intel, archive: doctolib-mcp_darwin_amd64.tar.gz }
-          - { runner: macos-latest, archive: doctolib-mcp_darwin_arm64.tar.gz }
+          - { runner: ubuntu-latest, archive: doctolib-mcp_linux_amd64.tar.gz, bin: doctolib-mcp }
+          - { runner: ubuntu-24.04-arm, archive: doctolib-mcp_linux_arm64.tar.gz, bin: doctolib-mcp }
+          - { runner: macos-15-intel, archive: doctolib-mcp_darwin_amd64.tar.gz, bin: doctolib-mcp }
+          - { runner: macos-latest, archive: doctolib-mcp_darwin_arm64.tar.gz, bin: doctolib-mcp }
+          - { runner: windows-latest, archive: doctolib-mcp_windows_amd64.zip, bin: doctolib-mcp.exe }
+          - { runner: windows-11-arm, archive: doctolib-mcp_windows_arm64.zip, bin: doctolib-mcp.exe }
     runs-on: ${{ matrix.runner }}
     # Only a token that can write sees a draft release.
     permissions:
@@ -78,6 +79,7 @@ jobs:
         shell: bash
     env:
       ARCHIVE: ${{ matrix.archive }}
+      BIN: ${{ matrix.bin }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -96,9 +98,13 @@ jobs:
           else
             shasum -a 256 -c - <<<"$line"
           fi
-          tar -xzf "$ARCHIVE"
+          if [[ $ARCHIVE == *.zip ]]; then
+            pwsh -NoProfile -Command "Expand-Archive -LiteralPath \$env:ARCHIVE -DestinationPath ."
+          else
+            tar -xzf "$ARCHIVE"
+          fi
       - name: Smoke test
-        run: bash scripts/smoke.sh release/doctolib-mcp "$GITHUB_REF_NAME"
+        run: bash scripts/smoke.sh "release/$BIN" "$GITHUB_REF_NAME"
 
   publish:
     needs: smoke
