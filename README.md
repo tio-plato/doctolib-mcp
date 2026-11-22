@@ -24,8 +24,9 @@ Doctolib fields the server doesn't map are kept as they are under `other`. A few
 ## Rate limits
 
 - Requests to Doctolib are at least 1 second apart, at most 600 an hour and 2000 a day. Every server process of the
-  user shares these limits through `$XDG_STATE_HOME/doctolib-mcp` (default `~/.local/state/doctolib-mcp`, also used
-  when `XDG_STATE_HOME` is a relative path).
+  user shares these limits through `$XDG_STATE_HOME/doctolib-mcp` (default `~/.local/state/doctolib-mcp`, which is
+  `%USERPROFILE%\.local\state\doctolib-mcp` on Windows, also used when `XDG_STATE_HOME` is a relative path). A server
+  installed in WSL and one installed on Windows keep separate limits.
 - If Doctolib blocks a request (403, 429 or an HTML challenge page), the server writes `blocked.json` there, with
   the block page's support code, and makes no more requests until you delete it.
 - Places are looked up on [geo.api.gouv.fr](https://geo.api.gouv.fr); only the postcode or town name is sent, and
@@ -33,14 +34,15 @@ Doctolib fields the server doesn't map are kept as they are under `other`. A few
 
 ## Install
 
-Give your agent this repository's URL: it can follow the steps below on Linux or macOS, x86_64 or ARM, without Go
-or Nix. Linux and macOS only: the rate limiter uses `flock`. On Windows, install it in WSL.
+Give your agent this repository's URL: it can follow the steps below on Linux, macOS or Windows, x86_64 or ARM,
+without Go or Nix.
 
-Each release has one archive per system, `doctolib-mcp_<os>_<arch>.tar.gz`, where `<os>` is `linux` or `darwin` and
-`<arch>` is `amd64` for x86_64 or `arm64` for aarch64 and arm64. The commands below pick the archive, download it and
-`checksums.txt` from the latest release, stop if the checksum doesn't match, and print the program's absolute path.
+Each release has one archive per system, `doctolib-mcp_<os>_<arch>.tar.gz` (`.zip` on Windows), where `<os>` is
+`linux`, `darwin` or `windows` and `<arch>` is `amd64` for x86_64 or `arm64` for aarch64 and arm64. The commands below
+pick the archive, download it and `checksums.txt` from the latest release, stop if the checksum doesn't match, and
+print the program's absolute path.
 
-Into `~/.local/bin`:
+Linux and macOS, into `~/.local/bin`:
 
 ```sh
 sh -eu <<'EOF'
@@ -65,7 +67,34 @@ echo "$HOME/.local/bin/doctolib-mcp"
 EOF
 ```
 
-To update, run the same commands again and restart the client.
+Windows (PowerShell), into `%USERPROFILE%\.local\bin`:
+
+```powershell
+& {
+  $ErrorActionPreference = 'Stop'
+  $ProgressPreference = 'SilentlyContinue'
+  $cpu = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
+  $arch = @{ AMD64 = 'amd64'; ARM64 = 'arm64' }[$cpu]
+  if (-not $arch) { throw "unsupported: $cpu" }
+  $file = "doctolib-mcp_windows_$arch.zip"
+  $url = 'https://github.com/tio-plato/doctolib-mcp/releases/latest/download'
+  $dir = "$env:USERPROFILE\.local\bin"
+  $tmp = New-Item -ItemType Directory -Path (Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid()))
+  Invoke-WebRequest "$url/$file" -OutFile "$tmp\$file" -UseBasicParsing
+  Invoke-WebRequest "$url/checksums.txt" -OutFile "$tmp\checksums.txt" -UseBasicParsing
+  $line = Get-Content "$tmp\checksums.txt" | Where-Object { $_ -match "^[0-9a-f]{64}  $([regex]::Escape($file))$" }
+  if (-not $line) { throw "$file is not in checksums.txt" }
+  if ((Get-FileHash "$tmp\$file" -Algorithm SHA256).Hash -ne $line.Split(' ')[0]) { throw "checksum mismatch: $file" }
+  Expand-Archive "$tmp\$file" -DestinationPath "$tmp\x" -ErrorAction Stop
+  New-Item -ItemType Directory -Force -Path $dir | Out-Null
+  Copy-Item "$tmp\x\doctolib-mcp.exe" $dir -Force
+  Remove-Item $tmp -Recurse
+  "$dir\doctolib-mcp.exe"
+}
+```
+
+To update, run the same commands again and restart the client. On Windows, quit the client first: Windows can't
+replace a program that is running.
 
 With Go or Nix, these work too:
 
@@ -85,7 +114,8 @@ to an MCP server, so set it under the server's `env` there.
 
 ## Clients
 
-Use the absolute path the install printed: the client doesn't always have `~/.local/bin` in its `PATH`.
+Use the absolute path the install printed: the client doesn't always have `~/.local/bin` in its `PATH`. In JSON,
+double the backslashes of a Windows path (`C:\\Users\\…`).
 
 Claude Code:
 
@@ -118,9 +148,9 @@ openclaw mcp add doctolib --command /path/to/doctolib-mcp
 ```
 
 Other clients take the same `mcpServers` JSON. The rate-limit state needs no `env` unless you set `XDG_STATE_HOME`:
-Hermes and OpenClaw both pass `HOME`, so it stays in `~/.local/state/doctolib-mcp`. If you do set it, add it to the
-`env` of clients that don't pass it on, such as OpenClaw, so that every client shares one state directory and its
-limits.
+Hermes and OpenClaw both pass `HOME`, and `USERPROFILE` on Windows, so it stays in `~/.local/state/doctolib-mcp`.
+If you do set it, add it to the `env` of clients that don't pass it on, such as OpenClaw, so that every client shares
+one state directory and its limits.
 
 ## Development
 
