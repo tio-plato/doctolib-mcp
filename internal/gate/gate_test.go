@@ -198,3 +198,18 @@ func readLog(t *testing.T, dir string) []time.Time {
 	}
 	return sent
 }
+
+func TestDefaultDirTakesOnlyAnAbsoluteXDGStateHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for _, tc := range []struct{ xdg, want string }{
+		{filepath.Join(home, "xdg"), filepath.Join(home, "xdg", "doctolib-mcp")},
+		{"state", filepath.Join(home, ".local", "state", "doctolib-mcp")},
+	} {
+		t.Setenv("XDG_STATE_HOME", tc.xdg)
+		got, err := gate.DefaultDir()
+		if err != nil || got != tc.want {
+			t.Errorf("XDG_STATE_HOME=%q: DefaultDir() = %q, %v; want %q", tc.xdg, got, err, tc.want)
+		}
+	}
+}

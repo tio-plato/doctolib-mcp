@@ -58,8 +58,10 @@ func New(c Config) *Gate {
 	return g
 }
 
+// DefaultDir ignores a relative XDG_STATE_HOME, as the XDG Base Directory spec requires: resolved against each
+// process's working directory, it would give every client its own limits and block marker.
 func DefaultDir() (string, error) {
-	if base := os.Getenv("XDG_STATE_HOME"); base != "" {
+	if base := os.Getenv("XDG_STATE_HOME"); filepath.IsAbs(base) {
 		return filepath.Join(base, "doctolib-mcp"), nil
 	}
 	home, err := os.UserHomeDir()

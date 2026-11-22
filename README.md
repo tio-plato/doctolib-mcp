@@ -24,7 +24,8 @@ Doctolib fields the server doesn't map are kept as they are under `other`. A few
 ## Rate limits
 
 - Requests to Doctolib are at least 1 second apart, at most 600 an hour and 2000 a day. Every server process of the
-  user shares these limits through `$XDG_STATE_HOME/doctolib-mcp` (default `~/.local/state/doctolib-mcp`).
+  user shares these limits through `$XDG_STATE_HOME/doctolib-mcp` (default `~/.local/state/doctolib-mcp`, also used
+  when `XDG_STATE_HOME` is a relative path).
 - If Doctolib blocks a request (403, 429 or an HTML challenge page), the server writes `blocked.json` there, with
   the block page's support code, and makes no more requests until you delete it.
 - Places are looked up on [geo.api.gouv.fr](https://geo.api.gouv.fr); only the postcode or town name is sent, and
