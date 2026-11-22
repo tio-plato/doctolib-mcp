@@ -172,6 +172,18 @@ func TestProfileWithoutOnlineBooking(t *testing.T) {
 	assertErrorPrefix(t, err, "no_online_booking")
 }
 
+// Only the profile endpoint's 410 says no online booking: elsewhere it is a failure like any other.
+func TestSearchGoneIsAnError(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.fake.handle(searchPath, func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusGone, `{}`)
+	})
+
+	_, err := e.tools.Search(t.Context(), tools.SearchInput{Query: "dentiste", Place: "75001"})
+	assertErrorPrefix(t, err, "error")
+}
+
 func TestCapsStopRequests(t *testing.T) {
 	t.Parallel()
 	for name, configure := range map[string]func(*gate.Config){
