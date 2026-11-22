@@ -7,7 +7,8 @@ does.
 
 - Target branch: `main`.
 - Setup: `nix develop -c true`.
-- Checks: `nix flake check`. It builds the package, which runs every test, and runs golangci-lint.
+- Checks: `nix flake check --all-systems`. It builds the package, which runs every test, and runs golangci-lint;
+  for the other systems the flake lists, it only evaluates the outputs.
 - Landing: push the commit SHA to `main` (`git push origin <sha>:main`).
 - Shipping: cut a release when the user asks, from the card that asked. Tag a commit already on `origin/main` whose
   `ci` run there passed: `git tag -s vX.Y.Z -m vX.Y.Z <sha>`, then `git push origin vX.Y.Z`. CI checks it, builds a

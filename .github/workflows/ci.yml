@@ -17,7 +17,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: cachix/install-nix-action@bb0495a1086c46893eee56f32fd192dfe4a15bb9 # v32.0.0
-      - run: nix flake check -L
+      # Also evaluates the other systems the flake lists, so one nixpkgs drops fails here.
+      - run: nix flake check --all-systems -L
 
   # Builds the release archives without releasing them, so a broken config shows up before a tag.
   snapshot:
