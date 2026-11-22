@@ -79,6 +79,9 @@ func DefaultDir() (string, error) {
 		}
 		return "", fmt.Errorf("find the state directory: %s is a relative path: %q", env, home)
 	}
+	if runtime.GOOS == "darwin" {
+		return filepath.Join(home, "Library", "Application Support", "doctolib-mcp"), nil
+	}
 	return filepath.Join(home, ".local", "state", "doctolib-mcp"), nil
 }
 
