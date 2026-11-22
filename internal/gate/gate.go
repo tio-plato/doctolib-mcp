@@ -142,7 +142,7 @@ func (g *Gate) Acquire(ctx context.Context) error {
 }
 
 // CheckMarker is for a call that sends no request: it only reads the marker, so it counts against no cap and
-// waits out no interval. Block replaces the marker atomically, so it needs no lock.
+// waits out no interval. Block writes the marker atomically, so it needs no lock.
 func (g *Gate) CheckMarker() error {
 	return g.checkMarker()
 }
@@ -168,9 +168,14 @@ func (g *Gate) waitAfter(ctx context.Context, last, now time.Time) (time.Time, e
 }
 
 // Block takes no lock: a process sleeping out the interval holds it and must
-// see the marker when it wakes.
+// see the marker when it wakes. It keeps a marker already there: on Windows, a
+// process holding the marker open makes replacing it fail, and one reading it
+// while it is replaced may find none.
 func (g *Gate) Block(path string, status int, text string) (Marker, error) {
 	m := Marker{Time: g.now(), Path: path, Status: status, Text: text}
+	if _, statErr := os.Lstat(g.MarkerPath()); statErr == nil {
+		return m, nil
+	}
 	err := os.MkdirAll(g.dir, 0o700)
 	if err != nil {
 		return m, fmt.Errorf("create state directory: %w", err)

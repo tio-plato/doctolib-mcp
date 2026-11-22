@@ -251,6 +251,27 @@ func TestFailedReplaceLeavesNoTemporaryFile(t *testing.T) {
 	}
 }
 
+func TestBlockKeepsTheFirstMarker(t *testing.T) {
+	t.Parallel()
+	g := gate.New(gate.Config{
+		Dir: t.TempDir(), Interval: interval, Hourly: gate.DefaultHourly, Daily: gate.DefaultDaily,
+		Now: nil, Sleep: nil,
+	})
+	for _, text := range []string{"first", "second"} {
+		_, err := g.Block("/availabilities.json", 403, text)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	var blocked *gate.BlockedError
+	if err := g.CheckMarker(); !errors.As(err, &blocked) {
+		t.Fatalf("CheckMarker() = %v, want a block", err)
+	}
+	if blocked.Marker.Text != "first" {
+		t.Errorf("the marker holds %q, want the first block's %q", blocked.Marker.Text, "first")
+	}
+}
+
 func readLog(t *testing.T, dir string) []time.Time {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join(dir, "requests.json"))
