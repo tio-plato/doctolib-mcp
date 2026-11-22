@@ -10,7 +10,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"syscall"
 	"time"
 )
 
@@ -204,14 +203,13 @@ func (g *Gate) lock() (func(), error) {
 	if err != nil {
 		return nil, fmt.Errorf("open lock file: %w", err)
 	}
-	fd := int(f.Fd())
-	err = syscall.Flock(fd, syscall.LOCK_EX)
+	err = lockExclusive(f)
 	if err != nil {
 		_ = f.Close()
 		return nil, fmt.Errorf("lock %s: %w", f.Name(), err)
 	}
 	return func() {
-		_ = syscall.Flock(fd, syscall.LOCK_UN)
+		_ = unlockExclusive(f)
 		_ = f.Close()
 	}, nil
 }
