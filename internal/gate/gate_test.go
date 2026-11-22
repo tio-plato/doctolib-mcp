@@ -202,6 +202,8 @@ func readLog(t *testing.T, dir string) []time.Time {
 func TestDefaultDirTakesOnlyAnAbsoluteXDGStateHome(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	// os.UserHomeDir reads USERPROFILE on Windows.
+	t.Setenv("USERPROFILE", home)
 	for _, tc := range []struct{ xdg, want string }{
 		{filepath.Join(home, "xdg"), filepath.Join(home, "xdg", "doctolib-mcp")},
 		{"state", filepath.Join(home, ".local", "state", "doctolib-mcp")},
