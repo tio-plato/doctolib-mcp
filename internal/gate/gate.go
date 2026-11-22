@@ -25,6 +25,8 @@ const (
 	logFile    = "requests.json"
 	lockFile   = "lock"
 	day        = 24 * time.Hour
+	// replaceTimeout is how long replaceFile keeps retrying, as long as cmd/go's robustio.
+	replaceTimeout = 2 * time.Second
 )
 
 type Config struct {
@@ -292,8 +294,9 @@ func writeFile(path string, data []byte) error {
 		_ = os.Remove(tmp.Name())
 		return fmt.Errorf("write %s: %w", path, err)
 	}
-	err = os.Rename(tmp.Name(), path)
+	err = replaceFile(tmp.Name(), path)
 	if err != nil {
+		_ = os.Remove(tmp.Name())
 		return fmt.Errorf("replace %s: %w", path, err)
 	}
 	// Syncing the directory is best effort: some systems can't.
@@ -302,6 +305,21 @@ func writeFile(path string, data []byte) error {
 		_ = dir.Close()
 	}
 	return nil
+}
+
+// replaceFile retries the errors isTransient names for up to replaceTimeout, waiting twice as long each time, as
+// cmd/go's robustio does: on Windows, a file another process has open can't be replaced until it closes it.
+func replaceFile(from, to string) error {
+	deadline := time.Now().Add(replaceTimeout)
+	wait := time.Millisecond
+	for {
+		err := os.Rename(from, to)
+		if err == nil || !isTransient(err) || !time.Now().Before(deadline) {
+			return err
+		}
+		time.Sleep(min(wait, time.Until(deadline)))
+		wait *= 2
+	}
 }
 
 func sleep(ctx context.Context, d time.Duration) error {
