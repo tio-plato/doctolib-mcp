@@ -158,6 +158,20 @@ func TestOtherFailuresAreErrorsWithoutMarkerNorRetry(t *testing.T) {
 	}
 }
 
+// Doctolib's profile endpoint answers 410 for a profile with no online booking, such as a search result with
+// bookable_online false.
+func TestProfileWithoutOnlineBooking(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	// The body of a real 410 was never kept: the server doesn't read it.
+	e.fake.handle(profilePath, func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusGone, `{}`)
+	})
+
+	_, err := e.tools.Profile(t.Context(), tools.ProfileInput{ProfileURL: e.base + "/dentiste/paris/ada-example"})
+	assertErrorPrefix(t, err, "no_online_booking")
+}
+
 func TestCapsStopRequests(t *testing.T) {
 	t.Parallel()
 	for name, configure := range map[string]func(*gate.Config){

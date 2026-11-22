@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
@@ -13,6 +14,8 @@ import (
 	"sync"
 	"time"
 	"unicode/utf8"
+
+	"github.com/tio-plato/doctolib-mcp/internal/doctolib"
 )
 
 const profilePath = "/online_booking/api/slot_selection_funnel/v1/info.json"
@@ -96,6 +99,10 @@ type MotiveSummary struct {
 
 var errNoSlug = errors.New("no profile slug in the URL path")
 
+// errNoOnlineBooking is Doctolib's HTTP 410 on the profile endpoint: it answers that for a profile with no online
+// booking, such as a search result with bookable_online false, and its own website gets the same.
+var errNoOnlineBooking = errors.New("no online booking")
+
 func (t *Tools) Profile(ctx context.Context, in ProfileInput) (*ProfileOutput, error) {
 	slug, err := profileSlug(in.ProfileURL)
 	if err != nil {
@@ -123,6 +130,10 @@ func (t *Tools) profileResponse(ctx context.Context, slug string) ([]byte, error
 		return raw, nil
 	}
 	raw, err := t.doctolib.Get(ctx, profilePath, "profile_slug="+url.QueryEscape(slug)+"&locale=fr")
+	var status *doctolib.StatusError
+	if errors.As(err, &status) && status.Status == http.StatusGone {
+		return nil, fmt.Errorf("read profile %q: %w: %w", slug, errNoOnlineBooking, err)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("read profile: %w", err)
 	}

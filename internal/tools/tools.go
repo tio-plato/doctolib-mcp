@@ -142,6 +142,11 @@ func ErrorText(err error) string {
 			"Tell the user; do not try another way.", budget.Limit, budget.Window, budget.Resume.Format(time.RFC3339))
 	case errors.As(err, &plc):
 		text = "place: " + plc.Error()
+	case errors.Is(err, errNoOnlineBooking):
+		text = "no_online_booking: " + err.Error() + ". The practitioner probably doesn't take appointments online " +
+			"on Doctolib, or the profile no longer exists (inferred, not verified). Tell the user and give them the " +
+			"profile_url, where Doctolib's page may say how to make an appointment. Calling again for this " +
+			"profile_url won't help."
 	default:
 		text = "error: " + err.Error() + ". Tell the user; do not retry with the same arguments."
 	}
