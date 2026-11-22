@@ -10,6 +10,7 @@ does.
 - Checks: `nix flake check --all-systems`. It builds the package, which runs every test, and runs golangci-lint;
   for the other systems the flake lists, it only evaluates the outputs. golangci-lint also runs with
   `GOOS=windows`; the tests on Windows run only in CI's `windows` job, since `nix flake check` can't run them.
+  On Linux it doesn't run the tests on macOS either: CI's `macos` job runs `nix flake check` there.
 - Landing: push the commit SHA to `main` (`git push origin <sha>:main`).
 - Shipping: cut a release when the user asks, from the card that asked. Tag a commit already on `origin/main` whose
   `ci` run there passed: `git tag -s vX.Y.Z -m vX.Y.Z <sha>`, then `git push origin vX.Y.Z`. CI checks it, builds a
