@@ -6,10 +6,10 @@
   outputs =
     { self, nixpkgs }:
     let
+      # No x86_64-darwin: nixpkgs dropped it in 26.11.
       systems = [
         "x86_64-linux"
         "aarch64-linux"
-        "x86_64-darwin"
         "aarch64-darwin"
       ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});

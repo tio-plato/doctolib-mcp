@@ -74,6 +74,8 @@ go install github.com/tio-plato/doctolib-mcp/cmd/doctolib-mcp@latest   # latest 
 nix run github:tio-plato/doctolib-mcp                                    # follows main
 ```
 
+Nix doesn't work on Intel Macs, which nixpkgs dropped in 26.11: use the archive or `go install` there.
+
 ## Configuration
 
 `DOCTOLIB_MCP_CHROME_MAJOR` sets the Chrome major version in the User-Agent, e.g. `157`. Release archives and Nix
@@ -126,6 +128,8 @@ limits.
 nix develop       # Go, gopls, golangci-lint, GoReleaser
 nix flake check   # build, tests, golangci-lint
 ```
+
+Nix doesn't work on Intel Macs: there, use Go and golangci-lint directly.
 
 ## License
 
