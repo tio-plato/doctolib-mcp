@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -21,7 +22,7 @@ const (
 )
 
 type SearchInput struct {
-	Query     string   `json:"query"               jsonschema:"speciality, keyword or practitioner name, e.g. dentiste"`
+	Query     string   `json:"query"               jsonschema:"slug of a Doctolib keyword, e.g. dentiste; suggest_keywords gives the others"`
 	Place     string   `json:"place"               jsonschema:"5-digit French postcode or commune name. In Paris, Lyon and Marseille a postcode means its arrondissement, the name the whole city"`
 	Languages []string `json:"languages,omitempty" jsonschema:"ISO 639 codes, e.g. en or es; keeps practitioners who speak any of them"`
 	Page      int      `json:"page,omitempty"      jsonschema:"page number, from 0; 20 results a page"`
@@ -88,7 +89,15 @@ type AvailabilityQuery struct {
 	PracticeID    int64   `json:"practice_id"`
 }
 
+// keywordSlug is the shape of the keywords Doctolib's search matches; it finds nobody for other text.
+var keywordSlug = regexp.MustCompile(`^[a-z0-9_-]+$`)
+
+var errNotKeyword = errors.New("not a Doctolib keyword")
+
 func (t *Tools) Search(ctx context.Context, in SearchInput) (*SearchOutput, error) {
+	if !keywordSlug.MatchString(in.Query) {
+		return nil, fmt.Errorf("%q: %w", in.Query, errNotKeyword)
+	}
 	codes, unknown, err := doctolibLanguages(in.Languages)
 	if err != nil {
 		return nil, err

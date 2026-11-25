@@ -158,6 +158,10 @@ func ErrorText(err error) string {
 			"on Doctolib, or the profile no longer exists (inferred, not verified). Tell the user and give them the " +
 			"profile_url, where Doctolib's page may say how to make an appointment. Calling again for this " +
 			"profile_url won't help."
+	case errors.Is(err, errNotKeyword):
+		text = "query: " + err.Error() + ". Doctolib's search takes only a keyword's slug, such as dentiste, and " +
+			"finds nobody for other text, names included. Call suggest_keywords with these words, then search " +
+			"with the slug of a keyword that fits; a practitioner or centre found by name has its profile_url there."
 	default:
 		text = "error: " + err.Error() + ". Tell the user; do not retry with the same arguments."
 	}
@@ -194,6 +198,7 @@ other holds the Doctolib fields the server doesn't map, under their original nam
 
 const searchDescription = `Doctolib (France): search practitioners near a French postcode or town.
 Read-only, doctolib.fr only. It never books: give the user a result's profile_url to book there.
+query is the slug of a Doctolib keyword, such as dentiste: a speciality, an act or condition practitioners list, or a kind of centre. Doctolib finds nobody for any other text, names included: get the slug from suggest_keywords unless you already know it.
 Results are sorted by distance and can lie outside the area. distance_km is the straight-line distance from searched_location; in_area is true when the result's postcode is one of place.postcodes.
 Doctolib silently ignores a filter the speciality doesn't offer, such as telehealth for dentists, so read filter_warnings before trusting a filtered page. available_within_days can't be checked from the results; the availability tool shows the actual slots.
 Pass a result's availability_query to availability and its profile_url to practitioner_profile. Skip practitioner_profile for a result with bookable_online false: Doctolib usually has no profile for it (practitioner_profile then fails with no_online_booking), so the call would only spend a request; give the user its profile_url. availability_query is null when bookable_online is false, when matched_motive or its id is null, or when Doctolib gives no practice id, or no agenda ids, that can be read. For a centre it can miss some agendas. When it is null with bookable_online true, or for a centre, practitioner_profile's offered has all the queries Doctolib's booking pages use.

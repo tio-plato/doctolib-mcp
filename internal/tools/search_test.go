@@ -50,6 +50,47 @@ func TestSearchSendsTheFullPlaceAndFilters(t *testing.T) {
 	)
 }
 
+// On 2026-11-22 Doctolib's search found nobody for a keyword's display name, a capitalised speciality or a
+// practitioner's name: it matches only a keyword's slug.
+func TestSearchTakesOnlyKeywordSlugs(t *testing.T) {
+	t.Parallel()
+	for name, query := range map[string]string{
+		"display name": "Détartrage", "capitalised": "Dentiste", "practitioner name": "Ada Example", "empty": "",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+			_, err := e.tools.Search(t.Context(), tools.SearchInput{Query: query, Place: "75001"})
+			text := assertErrorPrefix(t, err, "query")
+			if !strings.Contains(text, "suggest_keywords") {
+				t.Errorf("error %q does not point to suggest_keywords", text)
+			}
+			if n := len(e.fake.doctolibRequests()) + len(e.fake.geoRequests()); n != 0 {
+				t.Errorf("sent %d requests", n)
+			}
+		})
+	}
+	t.Run("slug with hyphens", func(t *testing.T) {
+		t.Parallel()
+		e := newEnv(t)
+		_, err := e.tools.Search(t.Context(), tools.SearchInput{Query: "centre-dentaire", Place: "75001"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		reqs := e.fake.doctolibRequests()
+		if len(reqs) != 1 {
+			t.Fatalf("sent %d Doctolib requests, want 1", len(reqs))
+		}
+		var body struct {
+			Keyword string `json:"keyword"`
+		}
+		err = json.Unmarshal(reqs[0].Body, &body)
+		if err != nil || body.Keyword != "centre-dentaire" {
+			t.Errorf("sent keyword %q (%v), want centre-dentaire", body.Keyword, err)
+		}
+	})
+}
+
 func TestSearchOrganisesResults(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
