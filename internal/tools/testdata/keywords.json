@@ -1,0 +1,15 @@
+{
+  "testOnlyTopLevel": {"kept": true},
+  "profiles": [
+    {"profileId": "4001", "name": "EXAMPLE", "city": "Paris", "cloudinaryPublicId": "fake-picture-1", "firstName": "Ada",
+     "link": "/dentiste/paris/ada-example", "organizationStatus": null, "portalClientId": null,
+     "speciality": "Chirurgien-dentiste", "title": "Dr", "type": "INDIVIDUAL_PRACTITIONER"},
+    {"profileId": "4002", "name": "Centre dentaire Exemple", "city": "Paris", "cloudinaryPublicId": null, "firstName": null,
+     "link": "/centre-dentaire/paris/centre-dentaire-exemple", "organizationStatus": "Centre dentaire",
+     "portalClientId": null, "speciality": null, "title": null, "type": "ORGANIZATION"}
+  ],
+  "searchEntries": [
+    {"slug": "detartrage", "name": "Détartrage", "id": "9001", "kind": "SPECIALITY", "testOnlyUnknownField": "kept"},
+    {"slug": "centre-dentaire", "name": "Centre dentaire", "id": "9002", "kind": "ORGANIZATION_STATUS"}
+  ]
+}

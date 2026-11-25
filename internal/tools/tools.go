@@ -37,6 +37,17 @@ func New(client *doctolib.Client, places *place.Resolver, now func() time.Time) 
 func NewServer(t *Tools, version string) (*mcp.Server, error) {
 	server := mcp.NewServer(&mcp.Implementation{Name: "doctolib", Title: "Doctolib (France)", Version: version}, nil)
 
+	keywordsIn, err := schemaFor[KeywordsInput]()
+	if err != nil {
+		return nil, err
+	}
+	keywordsIn.Properties["query"].MinLength = jsonschema.Ptr(1)
+	keywordsOut, err := schemaFor[KeywordsOutput]()
+	if err != nil {
+		return nil, err
+	}
+	mcp.AddTool(server, tool("suggest_keywords", keywordsDescription, keywordsIn, keywordsOut), handler(t.Keywords))
+
 	searchIn, err := schemaFor[SearchInput]()
 	if err != nil {
 		return nil, err
@@ -172,6 +183,14 @@ func toAny(ss []string) []any {
 const blockedRule = `If a tool error starts with "blocked": stop, show the user the error as it is, ` +
 	"and don't retry or reach Doctolib any other way, browser included. " +
 	`If it starts with "budget": tell the user when requests resume and don't try another way.`
+
+const keywordsDescription = `Doctolib (France): complete words into the keywords Doctolib's search takes, as Doctolib's search box does.
+Read-only, doctolib.fr only. One Doctolib request per call.
+keywords: pass a keyword's slug as search_practitioners' query. kind SPECIALITY is a speciality or an act or condition practitioners list, such as a check-up or an assessment; ORGANIZATION_STATUS is a kind of centre, and searching it finds centres. When several keywords fit, each finds its own practitioners.
+profiles are practitioners and centres whose name matches the words, with their name, speciality and city in other as Doctolib gives them: pass a profile_url to practitioner_profile.
+Words that match nothing give two empty lists: try other words, such as the speciality's name.
+other holds the Doctolib fields the server doesn't map, under their original names.
+` + blockedRule
 
 const searchDescription = `Doctolib (France): search practitioners near a French postcode or town.
 Read-only, doctolib.fr only. It never books: give the user a result's profile_url to book there.

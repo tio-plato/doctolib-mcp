@@ -14,7 +14,8 @@ It talks stdio, so any MCP client works: Claude Code, Claude Desktop, Hermes and
 
 | Tool | Returns |
 |---|---|
-| `search_practitioners` | Practitioners near a postcode or town, with distance, languages, sector and profile link. Filters: language, video consultation, sector, free slot within 1–14 days. |
+| `suggest_keywords` | The keywords Doctolib's search takes (specialities, acts and conditions practitioners list, kinds of centre) and the practitioners and centres whose name matches some words, as Doctolib's search box suggests them. |
+| `search_practitioners` | Practitioners near a postcode or town for a keyword from suggest_keywords, with distance, languages, sector and profile link. Filters: language, video consultation, sector, free slot within 1–14 days. |
 | `practitioner_profile` | A practitioner's visit motives, practices, agendas and phone numbers. |
 | `availability` | Earliest slot and free times over 15 days, for up to 20 practitioners (one request each). |
 

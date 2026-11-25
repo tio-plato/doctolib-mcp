@@ -234,13 +234,19 @@ func organisePractitioner(raw json.RawMessage, ref place.Point, plc place.Place,
 	}
 	o.take("paymentMeans", &p.PaymentMeans)
 	o.take("minimumFee", &p.MinimumFee)
-	var link *string
-	if o.take("link", &link) && link != nil {
-		u := base + *link
-		p.ProfileURL = &u
-	}
+	p.ProfileURL = takeProfileURL(o, base)
 	p.Other = o.rest()
 	return p
+}
+
+// takeProfileURL turns link, the path of a profile page on Doctolib, into its profile_url.
+func takeProfileURL(o *object, base string) *string {
+	var link *string
+	if !o.take("link", &link) || link == nil {
+		return nil
+	}
+	u := base + *link
+	return &u
 }
 
 func organiseIdentity(o *object, p *Practitioner) {

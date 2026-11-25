@@ -16,8 +16,8 @@ func TestEveryEndpointGetsTheSameBrowserHeaders(t *testing.T) {
 	}
 
 	reqs := e.fake.doctolibRequests()
-	if len(reqs) != 3 {
-		t.Fatalf("got %d Doctolib requests, want 3", len(reqs))
+	if len(reqs) != 4 {
+		t.Fatalf("got %d Doctolib requests, want 4", len(reqs))
 	}
 	first := reqs[0].Header
 	ua := first.Get("User-Agent")

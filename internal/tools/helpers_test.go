@@ -26,6 +26,7 @@ const (
 	searchPath       = "/patient-health-search/api/v1/hcp/search"
 	profilePath      = "/online_booking/api/slot_selection_funnel/v1/info.json"
 	availabilityPath = "/availabilities.json"
+	keywordsPath     = "/patient-health-search/api/v1/autocomplete"
 	geoPath          = "/communes"
 	testChrome       = "321"
 )
@@ -113,6 +114,9 @@ func newEnv(t *testing.T, configure ...func(*gate.Config)) *env {
 	})
 	f.handle(availabilityPath, func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, availabilityWithSlots)
+	})
+	f.handle(keywordsPath, func(w http.ResponseWriter, _ *http.Request) {
+		writeFile(t, w, "keywords.json")
 	})
 
 	cfg := gate.Config{

@@ -31,7 +31,7 @@ const (
 )
 
 type ProfileInput struct {
-	ProfileURL string  `json:"profile_url"          jsonschema:"profile_url of a search_practitioners result"`
+	ProfileURL string  `json:"profile_url"          jsonschema:"profile_url of a search_practitioners result or a suggest_keywords profile"`
 	MotiveIDs  []int64 `json:"motive_ids,omitempty" jsonschema:"motive ids from this profile's motive_index or motives; returns those that fit in one result, with the agendas and practitioners that offer them"`
 }
 

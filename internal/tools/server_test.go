@@ -70,6 +70,8 @@ func TestToolsThroughTheSDK(t *testing.T) {
 		{"availability", map[string]any{"queries": []any{map[string]any{
 			"visit_motive_id": 3001, "agenda_ids": []int{1001}, "practice_id": 2001,
 		}}}, func(m map[string]any) any { return m["results"].([]any)[0].(map[string]any)["other"] }},
+		{"suggest_keywords", map[string]any{"query": "détartrage"},
+			func(m map[string]any) any { return m["keywords"].([]any)[0].(map[string]any)["other"] }},
 	} {
 		structured := callTool(t, cs, tc.name, tc.args)
 		if other, ok := tc.other(structured).(map[string]any); !ok || len(other) == 0 {
@@ -116,6 +118,23 @@ func TestSearchSchemaRefusesMalformedLanguageCodes(t *testing.T) {
 	})
 	if err == nil && !res.IsError {
 		t.Fatal("language English was accepted")
+	}
+	if n := len(e.fake.doctolibRequests()); n != 0 {
+		t.Errorf("sent %d Doctolib requests", n)
+	}
+}
+
+func TestKeywordsSchemaRefusesAnEmptyQuery(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	cs := connect(t, e)
+
+	res, err := cs.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "suggest_keywords",
+		Arguments: map[string]any{"query": ""},
+	})
+	if err == nil && !res.IsError {
+		t.Fatal("an empty query was accepted")
 	}
 	if n := len(e.fake.doctolibRequests()); n != 0 {
 		t.Errorf("sent %d Doctolib requests", n)

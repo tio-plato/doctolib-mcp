@@ -33,7 +33,8 @@ func callAll(t *testing.T, e *env) []error {
 	_, availabilityErr := e.tools.Availability(t.Context(), tools.AvailabilityInput{
 		Queries: []tools.AvailabilityQuery{query(3001, 1001)},
 	})
-	return []error{searchErr, profileErr, availabilityErr}
+	_, keywordsErr := e.tools.Keywords(t.Context(), tools.KeywordsInput{Query: "détartrage"})
+	return []error{searchErr, profileErr, availabilityErr, keywordsErr}
 }
 
 func TestBlockStopsEveryToolUntilTheMarkerIsDeleted(t *testing.T) {
