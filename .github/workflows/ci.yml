@@ -60,6 +60,9 @@ jobs:
         with:
           persist-credentials: false
       - uses: cachix/install-nix-action@bb0495a1086c46893eee56f32fd192dfe4a15bb9 # v32.0.0
+        with:
+          # Nix leaves the sandbox off on macOS; turn it on so a build it would break fails here too.
+          extra_nix_config: sandbox = true
       - run: nix flake check -L
 
   # Builds the archives into a draft release, which smoke tests before publish.
