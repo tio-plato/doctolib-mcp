@@ -28,6 +28,8 @@
             inherit version;
             src = self;
             vendorHash = "sha256-K8illBSpXyRfqoN88kpC662Jt9rL2D4gv+hIsxZQ9bg=";
+            # The tests serve fake Doctolib and geo APIs on loopback, which the macOS build sandbox denies unless asked.
+            __darwinAllowLocalNetworking = true;
             # Keep the User-Agent's Chrome version in step with nixpkgs' chromium.
             ldflags = [
               "-s"
