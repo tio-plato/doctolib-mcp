@@ -35,6 +35,10 @@ func filterWarnings(in SearchInput, unknown []string, total *int, results []Prac
 	// A total of 0 means nobody matched, on any page; without a total only an empty page 0 does, since a later
 	// one may just be past the end.
 	nobody := total != nil && *total == 0 || total == nil && in.Page == 0 && len(results) == 0
+	if nobody {
+		warnings = append(warnings, fmt.Sprintf("query: nobody found for %q. Unless it is the slug of a keyword "+
+			"from suggest_keywords, Doctolib may know no such keyword: look the words up with suggest_keywords", in.Query))
+	}
 	if len(in.Languages) > 0 && nobody {
 		warnings = append(warnings, "languages: no result, so either no practitioner here who meets the other "+
 			"filters declares these languages, or the search finds nobody even without them")
